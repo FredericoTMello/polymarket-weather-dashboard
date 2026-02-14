@@ -1,9 +1,9 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Weather Intelligence — Polymarket</title>
+  <title>Weather Intelligence â€” Polymarket</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
     :root{--bg:#0b1220;--card:#111827;--border:#1f2937;--muted:#9ca3af;--accent:#8b5cf6;--hot:#ef4444;--cold:#3b82f6;--green:#22c55e;--yellow:#eab308;--orange:#f97316;--text:#f3f4f6}
@@ -124,37 +124,37 @@
 </head>
 <body>
 <div class="container">
-  <h1>🌡️ Weather Intelligence — Polymarket</h1>
-  <div class="sub">Dashboard de análise climática para apostas de temperatura. Dados de múltiplas fontes, sem backend.</div>
+  <h1>ðŸŒ¡ï¸ Weather Intelligence â€” Polymarket</h1>
+  <div class="sub">Dashboard de anÃ¡lise climÃ¡tica para apostas de temperatura. Dados de mÃºltiplas fontes, sem backend.</div>
 
   <!-- Favorites -->
   <div class="fav-section">
-    <div class="fav-label">⭐ Cidades favoritas</div>
+    <div class="fav-label">â­ Cidades favoritas</div>
     <div class="fav-chips" id="favChips">
-      <div class="fav-empty" id="favEmpty">Nenhuma favorita ainda — clique ⭐ no card para salvar</div>
+      <div class="fav-empty" id="favEmpty">Nenhuma favorita ainda â€” clique â­ no card para salvar</div>
     </div>
   </div>
 
   <div class="search-wrapper">
-    <input type="text" id="cityInput" placeholder="Digite o nome de uma cidade (ex: London, São Paulo, Tokyo)" autocomplete="off" />
+    <input type="text" id="cityInput" placeholder="Digite o nome de uma cidade (ex: London, SÃ£o Paulo, Tokyo)" autocomplete="off" />
     <button id="addBtn">+ Adicionar</button>
     <div class="dropdown" id="dropdown"></div>
   </div>
 
   <div class="tags">
-    <div class="tag">Estações: Heathrow · JFK · Haneda (+ busca)</div>
-    <div class="tag">Modelos: NOAA GFS · ECMWF IFS · UKMO (single fetch)</div>
-    <div class="tag">σ floor: 1.5°C (conservador)</div>
+    <div class="tag">EstaÃ§Ãµes: Heathrow Â· JFK Â· Haneda (+ busca)</div>
+    <div class="tag">Modelos: NOAA GFS Â· ECMWF IFS Â· UKMO (single fetch)</div>
+    <div class="tag">Ïƒ floor: 1.5Â°C (conservador)</div>
   </div>
 
   <div id="cards" class="cards"></div>
 
   <footer>
     Fontes de dados:<br>
-    <a href="https://open-meteo.com/" target="_blank">Open-Meteo</a> (Forecast + Historical + Geocoding) ·
-    <a href="https://open-meteo.com/en/docs/gfs-api" target="_blank">NOAA GFS</a> (via Open-Meteo) ·
+    <a href="https://open-meteo.com/" target="_blank">Open-Meteo</a> (Forecast + Historical + Geocoding) Â·
+    <a href="https://open-meteo.com/en/docs/gfs-api" target="_blank">NOAA GFS</a> (via Open-Meteo) Â·
     <a href="https://open-meteo.com/en/docs/ecmwf-api" target="_blank">Copernicus/ECMWF</a> (via Open-Meteo)<br>
-    Todas as APIs são gratuitas e sem necessidade de cadastro.
+    Todas as APIs sÃ£o gratuitas e sem necessidade de cadastro.
   </footer>
 </div>
 
@@ -164,14 +164,14 @@ const cities = [];
 const charts = {};
 const STORAGE_KEY = 'polymarket_weather_favs';
 
-// ─── Market Stations (Airport-based, matching Polymarket resolution) ───
+// â”€â”€â”€ Market Stations (Airport-based, matching Polymarket resolution) â”€â”€â”€
 const MARKET_STATIONS = [
   { id: "london", name: "London (Heathrow)", country: "United Kingdom", region: "England", lat: 51.4700, lon: -0.4543, station_id: "EGLL", timezone: "Europe/London" },
   { id: "new_york", name: "New York (JFK)", country: "United States", region: "New York", lat: 40.6413, lon: -73.7781, station_id: "KJFK", timezone: "America/New_York" },
   { id: "tokyo", name: "Tokyo (Haneda)", country: "Japan", region: "Tokyo", lat: 35.5494, lon: 139.7798, station_id: "RJTT", timezone: "Asia/Tokyo" }
 ];
 
-// ─── Model Configuration ───
+// â”€â”€â”€ Model Configuration â”€â”€â”€
 // SPEC: Dynamic sigma calculation - no fixed floor
 const FORECAST_MODELS = ['gfs_seamless', 'ecmwf_ifs025', 'ukmo_seamless'];
 const MODEL_LABELS = { gfs_seamless: 'NOAA GFS', ecmwf_ifs025: 'ECMWF IFS', ukmo_seamless: 'UKMO' };
@@ -179,7 +179,7 @@ const MODEL_COLORS = { gfs_seamless: '#22c55e', ecmwf_ifs025: '#3b82f6', ukmo_se
 // SPEC: Horizon penalty coefficient (calibrated via backtest)
 const HORIZON_PENALTY_K = 0.05;
 
-// ─── Favorites (localStorage) ───
+// â”€â”€â”€ Favorites (localStorage) â”€â”€â”€
 function loadFavorites() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
   catch { return []; }
@@ -212,21 +212,21 @@ function renderFavorites() {
     const empty = document.createElement('div');
     empty.className = 'fav-empty';
     empty.id = 'favEmpty';
-    empty.textContent = 'Nenhuma favorita ainda — clique ⭐ no card para salvar';
+    empty.textContent = 'Nenhuma favorita ainda â€” clique â­ no card para salvar';
     container.appendChild(empty);
     return;
   }
   favs.forEach(f => {
     const chip = document.createElement('div');
     chip.className = 'fav-chip';
-    chip.innerHTML = `⭐ ${esc(f.name)} <span class="fav-x" title="Remover favorito">✕</span>`;
+    chip.innerHTML = `â­ ${esc(f.name)} <span class="fav-x" title="Remover favorito">âœ•</span>`;
     chip.addEventListener('click', (e) => {
       if (e.target.classList.contains('fav-x')) {
         toggleFavorite(f);
         return;
       }
       // Load this city
-      if (cities.length >= MAX_CITIES) { alert(`Máximo de ${MAX_CITIES} cidades. Remova uma primeiro.`); return; }
+      if (cities.length >= MAX_CITIES) { alert(`MÃ¡ximo de ${MAX_CITIES} cidades. Remova uma primeiro.`); return; }
       if (cities.some(c => c.name === f.name && c.lat === f.lat && c.lon === f.lon)) return; // already loaded
       const id = 'c' + Date.now();
       const city = { ...f, id };
@@ -238,14 +238,14 @@ function renderFavorites() {
   });
 }
 
-// ─── API Endpoints (SINGLE FETCH for all models) ───
+// â”€â”€â”€ API Endpoints (SINGLE FETCH for all models) â”€â”€â”€
 const API = {
   geocode: (q) => `/api/geocode?q=${encodeURIComponent(q)}`,
   multiModel: (lat, lon) => `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=temperature_2m_max,temperature_2m_min&current_weather=true&timezone=auto&forecast_days=14&temperature_unit=celsius&models=${FORECAST_MODELS.join(',')}`,
   historical: (lat, lon, start, end) => `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${start}&end_date=${end}&daily=temperature_2m_mean&timezone=auto&temperature_unit=celsius`
 };
 
-// ─── DOM ───
+// â”€â”€â”€ DOM â”€â”€â”€
 const input = document.getElementById('cityInput');
 const dropdown = document.getElementById('dropdown');
 const addBtn = document.getElementById('addBtn');
@@ -254,7 +254,7 @@ const cardsEl = document.getElementById('cards');
 let selectedCity = null;
 let searchTimeout = null;
 
-// ─── Search ───
+// â”€â”€â”€ Search â”€â”€â”€
 input.addEventListener('input', () => {
   const q = input.value.trim();
   if (searchTimeout) clearTimeout(searchTimeout);
@@ -275,7 +275,7 @@ async function fetchCities(q) {
       const div = document.createElement('div');
       div.className = 'dropdown-item';
       const region = [r.admin1, r.country].filter(Boolean).join(', ');
-      div.innerHTML = `<strong>${esc(r.name)}</strong> <small>${esc(region)} (${r.latitude.toFixed(2)}°, ${r.longitude.toFixed(2)}°)</small>`;
+      div.innerHTML = `<strong>${esc(r.name)}</strong> <small>${esc(region)} (${r.latitude.toFixed(2)}Â°, ${r.longitude.toFixed(2)}Â°)</small>`;
       div.addEventListener('click', () => {
         selectedCity = { name: r.name, country: r.country || '', region: r.admin1 || '', lat: r.latitude, lon: r.longitude };
         input.value = `${r.name}, ${region}`;
@@ -287,12 +287,12 @@ async function fetchCities(q) {
   } catch (err) { console.error('Geocoding error:', err); }
 }
 
-// ─── Add / Remove ───
+// â”€â”€â”€ Add / Remove â”€â”€â”€
 addBtn.addEventListener('click', addCity);
 
 function addCity() {
-  if (!selectedCity) { alert('Selecione uma cidade da lista de sugestões.'); return; }
-  if (cities.length >= MAX_CITIES) { alert(`Máximo de ${MAX_CITIES} cidades. Remova uma primeiro.`); return; }
+  if (!selectedCity) { alert('Selecione uma cidade da lista de sugestÃµes.'); return; }
+  if (cities.length >= MAX_CITIES) { alert(`MÃ¡ximo de ${MAX_CITIES} cidades. Remova uma primeiro.`); return; }
   if (cities.some(c => c.name === selectedCity.name && c.lat === selectedCity.lat)) return;
   const id = 'c' + Date.now();
   const city = { ...selectedCity, id };
@@ -311,7 +311,7 @@ function removeCity(id) {
   if (el) el.remove();
 }
 
-// ─── Render Card ───
+// â”€â”€â”€ Render Card â”€â”€â”€
 function renderCard(city) {
   const isFav = isFavorite(city.name, city.lat, city.lon);
   const card = document.createElement('div');
@@ -321,11 +321,11 @@ function renderCard(city) {
     <div class="card-header">
       <div class="card-header-left">
         <div class="city-name">${esc(city.name)}</div>
-        <div class="city-country">${esc([city.region, city.country].filter(Boolean).join(', '))} · ${city.lat.toFixed(2)}°, ${city.lon.toFixed(2)}°</div>
+        <div class="city-country">${esc([city.region, city.country].filter(Boolean).join(', '))} Â· ${city.lat.toFixed(2)}Â°, ${city.lon.toFixed(2)}Â°</div>
       </div>
       <div class="card-btns">
-        <button class="btn-fav${isFav ? ' is-fav' : ''}" onclick="toggleFavorite({name:'${esc(city.name)}',country:'${esc(city.country)}',region:'${esc(city.region)}',lat:${city.lat},lon:${city.lon}})" title="Favoritar">⭐</button>
-        <button class="btn-remove" onclick="removeCity('${city.id}')" title="Remover">✕</button>
+        <button class="btn-fav${isFav ? ' is-fav' : ''}" onclick="toggleFavorite({name:'${esc(city.name)}',country:'${esc(city.country)}',region:'${esc(city.region)}',lat:${city.lat},lon:${city.lon}})" title="Favoritar">â­</button>
+        <button class="btn-remove" onclick="removeCity('${city.id}')" title="Remover">âœ•</button>
       </div>
     </div>
     <div class="current-temp" id="temp-${city.id}">carregando...</div>
@@ -335,13 +335,13 @@ function renderCard(city) {
     <div class="chart-container"><canvas id="chart-${city.id}"></canvas></div>
     <table class="sources-table" id="sources-${city.id}">
       <tr><th>Fonte</th><th>Dado</th><th>Endpoint</th></tr>
-      <tr><td colspan="3" class="loading">Buscando dados de múltiplas fontes...</td></tr>
+      <tr><td colspan="3" class="loading">Buscando dados de mÃºltiplas fontes...</td></tr>
     </table>
   `;
   cardsEl.appendChild(card);
 }
 
-// ─── Load City Data (SINGLE FETCH — all models in one request) ───
+// â”€â”€â”€ Load City Data (SINGLE FETCH â€” all models in one request) â”€â”€â”€
 async function loadCityData(city) {
   const tempEl = document.getElementById('temp-' + city.id);
   const statsEl = document.getElementById('stats-' + city.id);
@@ -375,11 +375,11 @@ async function loadCityData(city) {
       };
     }
 
-    // ── Current temperature ──
+    // â”€â”€ Current temperature â”€â”€
     const current = multi?.current_weather?.temperature;
-    tempEl.textContent = current != null ? `${Math.round(current)}°C` : '—';
+    tempEl.textContent = current != null ? `${Math.round(current)}Â°C` : 'â€”';
 
-    // ── Today stats per model ──
+    // â”€â”€ Today stats per model â”€â”€
     const todayMaxes = [];
     const todayMins = [];
     let statsHTML = '';
@@ -392,9 +392,9 @@ async function loadCityData(city) {
     }
     const avgMax = todayMaxes.length ? todayMaxes.reduce((a, b) => a + b, 0) / todayMaxes.length : null;
     const avgMin = todayMins.length ? todayMins.reduce((a, b) => a + b, 0) / todayMins.length : null;
-    statsEl.innerHTML = `<div class="stat">Máx: ${fmt(avgMax)}</div><div class="stat">Mín: ${fmt(avgMin)}</div>` + statsHTML;
+    statsEl.innerHTML = `<div class="stat">MÃ¡x: ${fmt(avgMax)}</div><div class="stat">MÃ­n: ${fmt(avgMin)}</div>` + statsHTML;
 
-    // ── Historical monthly mean ──
+    // â”€â”€ Historical monthly mean â”€â”€
     let histMean = null;
     if (hist?.daily?.time && hist?.daily?.temperature_2m_mean) {
       const temps = [];
@@ -408,52 +408,52 @@ async function loadCityData(city) {
       if (temps.length) histMean = temps.reduce((a, b) => a + b, 0) / temps.length;
     }
 
-    // ── Model means for insights ──
+    // â”€â”€ Model means for insights â”€â”€
     const modelMeans = FORECAST_MODELS.map(m => {
       const mx = perModel[m].max[0];
       const mn = perModel[m].min[0];
       return (mx != null && mn != null) ? (mx + mn) / 2 : null;
     }).filter(v => v != null);
 
-    // ── INSIGHT 1: Anomaly ──
+    // â”€â”€ INSIGHT 1: Anomaly â”€â”€
     let anomalyHTML = '';
     if (current != null && histMean != null) {
       const anom = current - histMean;
       const sign = anom > 0 ? '+' : '';
       const cls = anom > 0 ? 'anomaly-hot' : 'anomaly-cold';
-      anomalyHTML = `<div class="anomaly-badge ${cls}">Anomalia: ${sign}${anom.toFixed(1)}°C vs média hist. (${histMean.toFixed(1)}°C)</div>`;
+      anomalyHTML = `<div class="anomaly-badge ${cls}">Anomalia: ${sign}${anom.toFixed(1)}Â°C vs mÃ©dia hist. (${histMean.toFixed(1)}Â°C)</div>`;
     }
 
-    // ── INSIGHT 2: Model divergence ──
+    // â”€â”€ INSIGHT 2: Model divergence â”€â”€
     let divergenceHTML = '';
     if (modelMeans.length >= 2) {
       const div = Math.max(...modelMeans) - Math.min(...modelMeans);
       if (div >= 3) {
-        divergenceHTML = `<div class="divergence-badge divergence-high">⚠️ Modelos divergem em ${div.toFixed(1)}°C — oportunidade?</div>`;
+        divergenceHTML = `<div class="divergence-badge divergence-high">âš ï¸ Modelos divergem em ${div.toFixed(1)}Â°C â€” oportunidade?</div>`;
       } else if (div >= 1.5) {
-        divergenceHTML = `<div class="divergence-badge divergence-high">📊 Divergência moderada: ${div.toFixed(1)}°C entre modelos</div>`;
+        divergenceHTML = `<div class="divergence-badge divergence-high">ðŸ“Š DivergÃªncia moderada: ${div.toFixed(1)}Â°C entre modelos</div>`;
       } else {
-        divergenceHTML = `<div class="divergence-badge divergence-low">✅ Modelos alinhados (Δ ${div.toFixed(1)}°C)</div>`;
+        divergenceHTML = `<div class="divergence-badge divergence-low">âœ… Modelos alinhados (Î” ${div.toFixed(1)}Â°C)</div>`;
       }
     }
 
-    // ── INSIGHT 3: Consensus ──
+    // â”€â”€ INSIGHT 3: Consensus â”€â”€
     let consensusHTML = '';
     if (histMean != null && modelMeans.length >= 2) {
       const above = modelMeans.filter(m => m > histMean).length;
       const total = modelMeans.length;
       if (above === total) {
-        consensusHTML = `<div class="consensus-badge consensus-all">🔥 ${total}/${total} modelos acima da média</div>`;
+        consensusHTML = `<div class="consensus-badge consensus-all">ðŸ”¥ ${total}/${total} modelos acima da mÃ©dia</div>`;
       } else if (above === 0) {
-        consensusHTML = `<div class="consensus-badge consensus-none">❄️ ${total}/${total} modelos abaixo da média</div>`;
+        consensusHTML = `<div class="consensus-badge consensus-none">â„ï¸ ${total}/${total} modelos abaixo da mÃ©dia</div>`;
       } else {
-        consensusHTML = `<div class="consensus-badge consensus-mixed">⚖️ Modelos divididos (${above}/${total} acima)</div>`;
+        consensusHTML = `<div class="consensus-badge consensus-mixed">âš–ï¸ Modelos divididos (${above}/${total} acima)</div>`;
       }
     }
 
     insightsEl.innerHTML = anomalyHTML + divergenceHTML + consensusHTML;
 
-    // ── Chart: All models + historical baseline ──
+    // â”€â”€ Chart: All models + historical baseline â”€â”€
     const labels = dates.map(d => d.slice(5));
     const datasets = FORECAST_MODELS.map(m => ({
       label: MODEL_LABELS[m],
@@ -472,7 +472,7 @@ async function loadCityData(city) {
 
     if (histMean != null) {
       datasets.push({
-        label: 'Média histórica',
+        label: 'MÃ©dia histÃ³rica',
         data: dates.map(() => histMean),
         borderColor: '#ef4444',
         backgroundColor: 'transparent',
@@ -498,7 +498,7 @@ async function loadCityData(city) {
         },
         scales: {
           x: { ticks: { color: '#6b7280', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.03)' } },
-          y: { ticks: { color: '#6b7280', font: { size: 10 }, callback: v => v + '°' }, grid: { color: 'rgba(255,255,255,0.05)' } }
+          y: { ticks: { color: '#6b7280', font: { size: 10 }, callback: v => v + 'Â°' }, grid: { color: 'rgba(255,255,255,0.05)' } }
         }
       }
     });
@@ -506,12 +506,12 @@ async function loadCityData(city) {
     // Sources
     sourcesEl.innerHTML = `
       <tr><th>Fonte</th><th>Dado</th><th>Endpoint</th></tr>
-      ${FORECAST_MODELS.map(m => `<tr><td class="src-name">${MODEL_LABELS[m]}</td><td>Previsão 14 dias</td><td>api.open-meteo.com/v1/forecast (${m})</td></tr>`).join('')}
-      <tr><td class="src-name">ERA5 Historical</td><td>Média mensal (últimos 10 anos)</td><td>archive-api.open-meteo.com/v1/archive</td></tr>
+      ${FORECAST_MODELS.map(m => `<tr><td class="src-name">${MODEL_LABELS[m]}</td><td>PrevisÃ£o 14 dias</td><td>api.open-meteo.com/v1/forecast (${m})</td></tr>`).join('')}
+      <tr><td class="src-name">ERA5 Historical</td><td>MÃ©dia mensal (Ãºltimos 10 anos)</td><td>archive-api.open-meteo.com/v1/archive</td></tr>
       <tr><td class="src-name">Polymarket</td><td>Mercados de temperatura</td><td>polymarket.com/predictions/weather (proxy)</td></tr>
     `;
 
-    // ── Polymarket integration (pass unified model data) ──
+    // â”€â”€ Polymarket integration (pass unified model data) â”€â”€
     loadPolymarketData(city, {
       dates: dates,
       models: Object.fromEntries(FORECAST_MODELS.map(m => [m, { max: perModel[m].max }]))
@@ -523,13 +523,14 @@ async function loadCityData(city) {
   }
 }
 
-// ─── Model Error / Probability Engine ───
+// â”€â”€â”€ Model Error / Probability Engine â”€â”€â”€
 
 // Cache for historical error stats per city
 const errorCache = {};
 
 /**
- * Fetch last 30 days of model forecasts vs actuals.
+ * Estimate uncertainty stats using the last 90 days of observed max temperatures.
+ * This avoids look-ahead bias from retrospective forecast fields.
  * Returns { bias, sigma, n } or null.
  */
 async function calcModelError(lat, lon) {
@@ -539,38 +540,25 @@ async function calcModelError(lat, lon) {
   try {
     const now = new Date();
     const end = now.toISOString().slice(0, 10);
-    const start30 = new Date(now - 30 * 86400000).toISOString().slice(0, 10);
-
-    // Actual temps
-    const aUrl = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${start30}&end_date=${end}&daily=temperature_2m_max&timezone=auto`;
-    // Forecast model with past_days (what model said for those days)
-    const fUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&past_days=30&daily=temperature_2m_max&timezone=auto&forecast_days=1`;
-
-    const [aRes, fRes] = await Promise.all([
-      fetch(aUrl).then(r => r.json()),
-      fetch(fUrl).then(r => r.json())
-    ]);
-
-    const aDates = aRes.daily?.time || [];
+    const start90 = new Date(now - 90 * 86400000).toISOString().slice(0, 10);
+    const aUrl = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${start90}&end_date=${end}&daily=temperature_2m_max&timezone=auto`;
+    const aRes = await fetch(aUrl).then(r => r.json());
     const aMax = aRes.daily?.temperature_2m_max || [];
-    const fDates = fRes.daily?.time || [];
-    const fMax = fRes.daily?.temperature_2m_max || [];
 
-    const errors = [];
-    for (let i = 0; i < fDates.length; i++) {
-      const j = aDates.indexOf(fDates[i]);
-      if (j >= 0 && aMax[j] != null && fMax[i] != null) {
-        errors.push(fMax[i] - aMax[j]);
-      }
+    if (aMax.length < 8) { errorCache[key] = null; return null; }
+
+    const dailyDelta = [];
+    for (let i = 1; i < aMax.length; i++) {
+      if (aMax[i] != null && aMax[i - 1] != null) dailyDelta.push(aMax[i] - aMax[i - 1]);
     }
+    if (dailyDelta.length < 5) { errorCache[key] = null; return null; }
 
-    if (errors.length < 5) { errorCache[key] = null; return null; }
+    const meanDelta = dailyDelta.reduce((a, b) => a + b, 0) / dailyDelta.length;
+    const variance = dailyDelta.reduce((a, e) => a + (e - meanDelta) ** 2, 0) / (dailyDelta.length - 1);
+    const sigmaProxy = Math.sqrt(variance);
+    const sigma = Math.max(1.5, sigmaProxy);
 
-    const mean = errors.reduce((a, b) => a + b, 0) / errors.length;
-    const variance = errors.reduce((a, e) => a + (e - mean) ** 2, 0) / (errors.length - 1);
-    const sigma = Math.sqrt(variance);
-
-    const result = { bias: mean, sigma, baseSigma: sigma, n: errors.length };
+    const result = { bias: 0, sigma, baseSigma: sigma, n: dailyDelta.length };
     errorCache[key] = result;
     return result;
   } catch (e) {
@@ -596,45 +584,45 @@ function normCDF(x) {
  * Calculate real probability for a temperature range.
  * mu = corrected model mean (forecast - bias)
  * sigma = historical error std dev
- * lo, hi = temperature range bounds (°C)
+ * lo, hi = temperature range bounds (Â°C)
  */
 function probInRange(mu, sigma, lo, hi) {
   return normCDF((hi - mu) / sigma) - normCDF((lo - mu) / sigma);
 }
 
 /**
- * Parse a Polymarket outcome range into [lo, hi] in °C.
- * Handles: "6°C", "36-37°F", "33°F or below", "42°F or higher", "-3°C", etc.
+ * Parse a Polymarket outcome range into [lo, hi] in Â°C.
+ * Handles: "6Â°C", "36-37Â°F", "33Â°F or below", "42Â°F or higher", "-3Â°C", etc.
  */
 /**
- * Parse outcome range into [lo, hi] in °C.
- * IMPORTANT: No ±0.5 shift on "or higher"/"or below" boundaries.
+ * Parse outcome range into [lo, hi] in Â°C.
+ * IMPORTANT: No Â±0.5 shift on "or higher"/"or below" boundaries.
  * The contract resolves at the exact reported temperature.
  * Conservative interpretation avoids inflated edge estimates.
  */
 function parseRange(range) {
-  const isF = range.includes('°F') || range.match(/\d+°?F/);
+  const isF = range.includes('Â°F') || range.match(/\d+Â°?F/);
   const convert = (v) => isF ? fToC(v) : v;
 
-  // "X or below" / "X ou menos" → (-∞, X]
-  let m = range.match(/([\d.-]+)\s*°?[FC]?\s*(?:or below|ou menos)/i);
+  // "X or below" / "X ou menos" â†’ (-âˆž, X]
+  let m = range.match(/([\d.-]+)\s*Â°?[FC]?\s*(?:or below|ou menos)/i);
   if (m) return { lo: -Infinity, hi: convert(parseFloat(m[1])) };
 
-  // "X or higher" / "ou mais" → [X, +∞)
-  m = range.match(/([\d.-]+)\s*°?[FC]?\s*(?:or higher|ou mais)/i);
+  // "X or higher" / "ou mais" â†’ [X, +âˆž)
+  m = range.match(/([\d.-]+)\s*Â°?[FC]?\s*(?:or higher|ou mais)/i);
   if (m) return { lo: convert(parseFloat(m[1])), hi: Infinity };
 
-  // "X-Y" range → [X, Y] - SPEC 5.2B: Closed interval, no artificial expansion
-  m = range.match(/([\d.-]+)\s*[-–]\s*([\d.-]+)/);
+  // "X-Y" range â†’ [X, Y] - SPEC 5.2B: Closed interval, no artificial expansion
+  m = range.match(/([\d.-]+)\s*[-â€“]\s*([\d.-]+)/);
   if (m) {
     const lo = convert(parseFloat(m[1]));
     const hi = convert(parseFloat(m[2]));
-    // Closed interval: P(X ≤ T ≤ Y) - no ±0.5
+    // Closed interval: P(X â‰¤ T â‰¤ Y) - no Â±0.5
     return { lo: lo, hi: hi };
   }
 
-  // Single value "X°C" - SPEC 5.2A: P(X) = P(X-0.5 ≤ T < X+0.5)
-  m = range.match(/([\d.-]+)\s*°?[FC]/);
+  // Single value "XÂ°C" - SPEC 5.2A: P(X) = P(X-0.5 â‰¤ T < X+0.5)
+  m = range.match(/([\d.-]+)\s*Â°?[FC]/);
   if (m) {
     const v = convert(parseFloat(m[1]));
     return { lo: v - 0.5, hi: v + 0.5 };
@@ -643,15 +631,15 @@ function parseRange(range) {
   return null;
 }
 
-// ─── Polymarket ───
+// â”€â”€â”€ Polymarket â”€â”€â”€
 
 // City name mappings (Polymarket uses English names)
-// Keys: what dashboard sends → Values: what Polymarket API returns
+// Keys: what dashboard sends â†’ Values: what Polymarket API returns
 const CITY_ALIASES = {
   // Portuguese names
   'londres': 'london', 'nova york': 'nyc', 'nova iorque': 'nyc',
-  'seul': 'seoul', 'tóquio': 'tokyo', 'pequim': 'beijing',
-  'milão': 'milan', 'munique': 'munich', 'moscou': 'moscow',
+  'seul': 'seoul', 'tÃ³quio': 'tokyo', 'pequim': 'beijing',
+  'milÃ£o': 'milan', 'munique': 'munich', 'moscou': 'moscow',
   'ancara': 'ankara',
   // Market stations (with airport codes)
   'london (heathrow)': 'london',
@@ -662,7 +650,7 @@ const CITY_ALIASES = {
   'london': 'london', 'heathrow': 'london',
   'tokyo': 'tokyo', 'haneda': 'tokyo',
   // Direct matches (Polymarket names)
-  'buenos aires': 'buenos aires', 'são paulo': 'são paulo',
+  'buenos aires': 'buenos aires', 'sÃ£o paulo': 'sÃ£o paulo',
   'toronto': 'toronto', 'chicago': 'chicago', 'dallas': 'dallas',
   'seattle': 'seattle', 'miami': 'miami', 'atlanta': 'atlanta',
   'wellington': 'wellington', 'seoul': 'seoul', 'ankara': 'ankara'
@@ -683,22 +671,28 @@ async function loadPolymarketData(city, modelData) {
     if (marketRes.error) throw new Error(marketRes.error);
 
     if (!marketRes.length) {
-      polyEl.innerHTML = `<div class="poly-section"><div class="poly-title">📈 Polymarket</div><div class="poly-none">Nenhum mercado de temperatura aberto para ${esc(city.name)}</div></div>`;
+      polyEl.innerHTML = `<div class="poly-section"><div class="poly-title">ðŸ“ˆ Polymarket</div><div class="poly-none">Nenhum mercado de temperatura aberto para ${esc(city.name)}</div></div>`;
       return;
     }
 
     const monthNames = ['january','february','march','april','may','june','july','august','september','october','november','december'];
 
     let html = '<div class="poly-section">';
-    html += '<div class="poly-title">📈 Polymarket — Análise de Edge</div>';
+    html += '<div class="poly-title">ðŸ“ˆ Polymarket â€” AnÃ¡lise de Edge</div>';
 
     // Collect unique dates
-    const uniqueDates = [...new Set(marketRes.map(e => e.date).filter(Boolean))].sort();
+    const uniqueDates = [...new Set(marketRes.map(e => e.date).filter(Boolean))]
+      .sort((a, b) => {
+        const aParsed = parseMarketDate(a, monthNames);
+        const bParsed = parseMarketDate(b, monthNames);
+        if (aParsed && bParsed) return aParsed.localeCompare(bParsed);
+        return a.localeCompare(b);
+      });
     
     // Date filter dropdown (only if multiple dates)
     if (uniqueDates.length > 1) {
       html += '<div style="margin-bottom:10px">';
-      html += `<label style="font-size:12px;color:var(--muted);margin-right:8px">📅 Data:</label>`;
+      html += `<label style="font-size:12px;color:var(--muted);margin-right:8px">ðŸ“… Data:</label>`;
       html += `<select class="date-filter" data-city="${city.id}" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:12px">`;
       html += `<option value="">Todas</option>`;
       uniqueDates.forEach(d => {
@@ -711,87 +705,52 @@ async function loadPolymarketData(city, modelData) {
     // Show error stats
     if (errorStats) {
       html += `<div style="font-size:11px;color:var(--muted);margin-bottom:8px;padding:4px 8px;background:rgba(255,255,255,0.02);border-radius:6px">`;
-      html += `📊 Erro do modelo (30d): bias=${errorStats.bias > 0 ? '+' : ''}${errorStats.bias.toFixed(2)}°C · σ=${errorStats.sigma.toFixed(2)}°C · n=${errorStats.n}`;
+      html += `ðŸ“Š Incerteza (proxy 90d): bias=${errorStats.bias > 0 ? '+' : ''}${errorStats.bias.toFixed(2)}Â°C Â· Ïƒ=${errorStats.sigma.toFixed(2)}Â°C Â· n=${errorStats.n}`;
       html += `</div>`;
     }
 
     for (const event of marketRes) {
-      const q = event.question || '';
+      const q = event.title || event.question || '';
       const outcomes = event.outcomes || [];
       const dateStr = event.date || '';
-      const dateParts = dateStr.toLowerCase().split(/\s+/);
 
-      // Skip markets that are already resolved (all outcomes 0% or one at 100%)
-      const allZero = outcomes.every(o => o.probability < 0.01);
-      const oneHundred = outcomes.some(o => o.probability > 0.99);
-      if (allZero || oneHundred) {
-        continue; // Market already resolved, skip
-      }
+      // Skip markets with no actionable prices or clearly resolved books.
+      const probs = outcomes.map(o => Number(o.probability)).filter(p => Number.isFinite(p));
+      const allZero = !probs.length || probs.every(p => p <= 0);
+      const nearResolved = probs.length > 1 && Math.max(...probs) >= 0.995;
+      if (allZero || nearResolved) continue;
 
       html += '<div class="poly-market" data-date="' + esc(dateStr) + '">';
       html += `<div class="poly-question">${esc(q)}</div>`;
 
       // Find model prediction for this date (unified format)
-      // SPEC 2.1: Validate market rule and set confidence
       let avgPredC = null;
       let modelSpread = null;
       let marketRuleConfidence = 'LOW';
-      let dateValid = false;
-      
-      if (dateParts.length === 2) {
-        const monthIdx = monthNames.indexOf(dateParts[0]);
-        const dayNum = parseInt(dateParts[1]);
-        if (monthIdx >= 0 && dayNum) {
-          // SPEC 3.2: Use contract date, assume current year if unclear
-          const now = new Date();
-          const currentYear = now.getFullYear();
-          // Try current year first, then next year if date is in the past
-          let targetDate = `${currentYear}-${String(monthIdx + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
-          let targetDateObj = new Date(targetDate);
-          
-          // If date is in the past, assume next year (for future contracts)
-          if (targetDateObj <= now) {
-            targetDate = `${currentYear + 1}-${String(monthIdx + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
-            targetDateObj = new Date(targetDate);
-          }
-          
-          // SPEC 2.1.2: Block trade if date in past
-          if (targetDateObj > now) {
-            dateValid = true;
-            const idx = (modelData.dates || []).indexOf(targetDate);
+      let targetDate = parseMarketDate(dateStr, monthNames);
 
-            if (idx >= 0) {
-              const preds = FORECAST_MODELS
-                .map(m => modelData.models?.[m]?.max?.[idx])
-                .filter(v => v != null);
-              if (preds.length) {
-                avgPredC = preds.reduce((a, b) => a + b, 0) / preds.length;
-                modelSpread = Math.max(...preds) - Math.min(...preds);
-                // SPEC 2.1.2: Confidence HIGH if we have valid date and predictions
-                marketRuleConfidence = 'HIGH';
-              } else {
-                marketRuleConfidence = 'MEDIUM'; // No forecast data
-              }
-            } else {
-              marketRuleConfidence = 'MEDIUM'; // Date not in forecast range
-            }
-          } else {
-            marketRuleConfidence = 'LOW'; // Date in past
-          }
-        }
-      }ODELS
-              .map(m => modelData.models?.[m]?.max?.[idx])
-              .filter(v => v != null);
+      if (targetDate) {
+        const now = new Date();
+        const targetDateObj = new Date(targetDate);
+        if (targetDateObj > now) {
+          const idx = (modelData.dates || []).indexOf(targetDate);
+          if (idx >= 0) {
+            const preds = FORECAST_MODELS.map(m => modelData.models?.[m]?.max?.[idx]).filter(v => v != null);
             if (preds.length) {
               avgPredC = preds.reduce((a, b) => a + b, 0) / preds.length;
               modelSpread = Math.max(...preds) - Math.min(...preds);
+              marketRuleConfidence = 'HIGH';
+            } else {
+              marketRuleConfidence = 'MEDIUM';
             }
+          } else {
+            marketRuleConfidence = 'MEDIUM';
           }
         }
       }
 
-      // ── EDGE TABLE (Dynamic Sigma per SPEC) ──
-      if (avgPredC != null && errorStats) {
+      // â”€â”€ EDGE TABLE (Dynamic Sigma per SPEC) â”€â”€
+      if (avgPredC != null && errorStats && targetDate) {
         // Calculate horizon in days from now to target date
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -802,7 +761,7 @@ async function loadPolymarketData(city, modelData) {
         const mu = avgPredC - errorStats.bias;
         
         // Dynamic sigma calculation - SPEC 4.3
-        // sigma_final = sqrt(σ_hist² + σ_model_disp² + σ_horizon_penalty²)
+        // sigma_final = sqrt(Ïƒ_histÂ² + Ïƒ_model_dispÂ² + Ïƒ_horizon_penaltyÂ²)
         const sigmaHorizonPenalty = errorStats.baseSigma * horizonDays * HORIZON_PENALTY_K;
         const sigmaFinal = Math.sqrt(
           Math.pow(errorStats.sigma, 2) + 
@@ -832,16 +791,16 @@ async function loadPolymarketData(city, modelData) {
           let signal = '';
           let rowClass = '';
           if (edge >= 0.10) {
-            signal = '🟢 EDGE';
+            signal = 'ðŸŸ¢ EDGE';
             rowClass = 'edge-row-green';
           } else if (edge >= 0.05) {
-            signal = '🟡 fraco';
+            signal = 'ðŸŸ¡ fraco';
             rowClass = 'edge-row-yellow';
           } else if (edge <= -0.10) {
-            signal = '🔴 contra';
+            signal = 'ðŸ”´ contra';
             rowClass = 'edge-row-red';
           } else {
-            signal = '⚪ skip';
+            signal = 'âšª skip';
             rowClass = '';
           }
 
@@ -858,27 +817,27 @@ async function loadPolymarketData(city, modelData) {
 
         // Summary verdict - SPEC 7: Only allow trade if confidence is HIGH
         const confClass = 'confidence-' + marketRuleConfidence.toLowerCase();
-        const confLabel = { HIGH: '✓ CONFIDENCE', MEDIUM: '⚠ MEDIUM', LOW: '✕ LOW' }[marketRuleConfidence];
+        const confLabel = { HIGH: 'âœ“ CONFIDENCE', MEDIUM: 'âš  MEDIUM', LOW: 'âœ• LOW' }[marketRuleConfidence];
         
         html += '<div class="edge-verdict">';
         if (marketRuleConfidence === 'LOW') {
-          html += `<span class="verdict-skip">❌ MERCADO INVÁLIDO: data no passado ou indefinida</span>`;
+          html += `<span class="verdict-skip">âŒ MERCADO INVÃLIDO: data no passado ou indefinida</span>`;
         } else if (bestEdge >= 0.10 && marketRuleConfidence === 'HIGH') {
-          html += `<span class="verdict-go">✅ EDGE DETECTADO: <strong>${esc(bestOutcome)}</strong> com +${(bestEdge * 100).toFixed(0)}% de edge</span>`;
+          html += `<span class="verdict-go">âœ… EDGE DETECTADO: <strong>${esc(bestOutcome)}</strong> com +${(bestEdge * 100).toFixed(0)}% de edge</span>`;
           if (modelSpread != null && modelSpread <= 1.5) {
-            html += ` <span class="verdict-aligned">· Modelos alinhados (Δ${modelSpread.toFixed(1)}°C) ✓</span>`;
+            html += ` <span class="verdict-aligned">Â· Modelos alinhados (Î”${modelSpread.toFixed(1)}Â°C) âœ“</span>`;
           } else if (modelSpread != null) {
-            html += ` <span class="verdict-warn">· ⚠️ Modelos divergem ${modelSpread.toFixed(1)}°C — cautela</span>`;
+            html += ` <span class="verdict-warn">Â· âš ï¸ Modelos divergem ${modelSpread.toFixed(1)}Â°C â€” cautela</span>`;
           }
           html += `<span class="confidence-badge ${confClass}">${confLabel}</span>`;
         } else if (bestEdge >= 0.05) {
-          html += `<span class="verdict-weak">🟡 Edge fraco (+${(bestEdge * 100).toFixed(0)}%) — insuficiente</span>`;
+          html += `<span class="verdict-weak">ðŸŸ¡ Edge fraco (+${(bestEdge * 100).toFixed(0)}%) â€” insuficiente</span>`;
           if (marketRuleConfidence !== 'HIGH') html += `<span class="confidence-badge ${confClass}">${confLabel}</span>`;
         } else {
-          html += `<span class="verdict-skip">❌ SEM EDGE — mercado precificado corretamente</span>`;
+          html += `<span class="verdict-skip">âŒ SEM EDGE â€” mercado precificado corretamente</span>`;
           if (marketRuleConfidence !== 'HIGH') html += `<span class="confidence-badge ${confClass}">${confLabel}</span>`;
         }
-        html += `<div style="font-size:11px;color:var(--muted);margin-top:4px">μ_corr=${mu.toFixed(1)}°C · σ_final=${sigmaFinal.toFixed(2)}°C · H=${horizonDays}d · SPEC: Edge ≥ 10% + conf=HIGH + modelos alinhados</div>`;
+        html += `<div style="font-size:11px;color:var(--muted);margin-top:4px">Î¼_corr=${mu.toFixed(1)}Â°C Â· Ïƒ_final=${sigmaFinal.toFixed(2)}Â°C Â· H=${horizonDays}d Â· SPEC: Edge â‰¥ 10% + conf=HIGH + modelos alinhados</div>`;
         html += '</div>';
 
       } else {
@@ -892,7 +851,7 @@ async function loadPolymarketData(city, modelData) {
         });
         html += '</div>';
         if (avgPredC != null) {
-          html += `<div class="poly-compare">🔮 Modelos preveem ${avgPredC.toFixed(1)}°C — sem dados de erro histórico para calcular edge</div>`;
+          html += `<div class="poly-compare">ðŸ”® Modelos preveem ${avgPredC.toFixed(1)}Â°C â€” sem dados de erro histÃ³rico para calcular edge</div>`;
         }
       }
 
@@ -920,29 +879,51 @@ async function loadPolymarketData(city, modelData) {
 
   } catch (err) {
     console.warn('Polymarket fetch error:', err);
-    polyEl.innerHTML = `<div class="poly-section"><div class="poly-title">📈 Polymarket</div><div class="poly-none">Proxy offline — inicie server.py para ver dados do Polymarket</div></div>`;
+    polyEl.innerHTML = `<div class="poly-section"><div class="poly-title">ðŸ“ˆ Polymarket</div><div class="poly-none">Proxy offline â€” inicie server.py para ver dados do Polymarket</div></div>`;
   }
 }
 
-// ─── Helpers ───
+// â”€â”€â”€ Helpers â”€â”€â”€
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
-function fmt(v) { return v != null ? Math.round(v) + '°C' : '—'; }
+function fmt(v) { return v != null ? Math.round(v) + 'Â°C' : 'â€”'; }
 function fToC(f) { return ((f - 32) * 5 / 9); }
 function convertRangeToC(range) {
-  // If range contains °F, convert to °C
-  if (!range.includes('°F') && !range.match(/\d+°?F/)) return range;
-  // Replace all temperature values: "36-37°F" → "2-3°C"
-  return range.replace(/([\d.-]+)\s*(?:-\s*([\d.-]+)\s*)?°?F/g, (match, t1, t2) => {
+  // If range contains Â°F, convert to Â°C
+  if (!range.includes('Â°F') && !range.match(/\d+Â°?F/)) return range;
+  // Replace all temperature values: "36-37Â°F" â†’ "2-3Â°C"
+  return range.replace(/([\d.-]+)\s*(?:-\s*([\d.-]+)\s*)?Â°?F/g, (match, t1, t2) => {
     const c1 = Math.round(fToC(parseFloat(t1)));
     if (t2) {
       const c2 = Math.round(fToC(parseFloat(t2)));
-      return `${c1} a ${c2}°C`;
+      return `${c1} a ${c2}Â°C`;
     }
-    return `${c1}°C`;
+    return `${c1}Â°C`;
   }).replace('or below', 'ou menos').replace('or higher', 'ou mais');
 }
 
-// ─── Init ───
+
+function parseMarketDate(dateStr, monthNames) {
+  if (!dateStr) return null;
+  const parts = dateStr.toLowerCase().replace(',', '').trim().split(/\s+/);
+  if (parts.length < 2) return null;
+
+  const monthIdx = monthNames.indexOf(parts[0]);
+  const dayNum = parseInt(parts[1], 10);
+  if (monthIdx < 0 || !dayNum) return null;
+
+  const now = new Date();
+  const today = new Date(now);
+  today.setHours(0, 0, 0, 0);
+  let year = now.getFullYear();
+  let parsed = new Date(`${year}-${String(monthIdx + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`);
+  if (parsed < today) {
+    year += 1;
+    parsed = new Date(`${year}-${String(monthIdx + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`);
+  }
+  return parsed.toISOString().slice(0, 10);
+}
+
+// â”€â”€â”€ Init â”€â”€â”€
 renderFavorites();
 
 // Auto-load market stations (airport-based, matching Polymarket resolution)
