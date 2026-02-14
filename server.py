@@ -168,6 +168,24 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             self.send_json(matched)
             return
 
+        # Proxy for Geocoding API (avoids CORS)
+        if parsed.path == "/api/geocode":
+            params = urllib.parse.parse_qs(parsed.query)
+            q = params.get("q", [""])[0].strip()
+            if not q:
+                self.send_json([])
+                return
+            geo_url = f"https://geocoding-api.open-meteo.com/v1/search?name={urllib.parse.quote(q)}&count=8&language=pt&format=json"
+            try:
+                with urllib.request.urlopen(geo_url, timeout=10) as resp:
+                    data = json.loads(resp.read().decode())
+                    results = data.get("results", [])
+                    # Dashboard expects { results: [...] }
+                    self.send_json({"results": results})
+            except Exception as e:
+                self.send_json({"error": str(e)}, status=500)
+            return
+
         super().do_GET()
 
     def send_json(self, data, status=200):
