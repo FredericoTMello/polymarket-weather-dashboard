@@ -24,6 +24,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 import config
+from audit_engine import run_statistical_audit
 from calibration import calibrate_parameters, validate_oos
 from poly_client import MarketSnapshot, PolymarketClient
 from stats_engine import MarketEvaluation, StatsEngine
@@ -213,8 +214,12 @@ async def fetch_weather_batch(
 
 
 def log_opportunity(logger: logging.Logger, ev: MarketEvaluation) -> None:
-    if not ev.best_outcome:
+    if not ev.best_outcome and not ev.best_package:
         return
+    is_pack = ev.recommended_action.startswith("BUY PACK") and ev.best_package is not None
+    edge = ev.best_package.edge_sum if is_pack else (ev.best_outcome.edge if ev.best_outcome else 0.0)
+    roi = ev.best_package.expected_roi if is_pack else (ev.best_outcome.expected_roi if ev.best_outcome else 0.0)
+    kelly = 0.0 if is_pack else (ev.best_outcome.kelly_fraction if ev.best_outcome else 0.0)
     payload = {
         "ts_utc": datetime.now(timezone.utc).isoformat(),
         "city": ev.city,
@@ -224,13 +229,16 @@ def log_opportunity(logger: logging.Logger, ev: MarketEvaluation) -> None:
         "direction": ev.directional_signal,
         "real_temp_c": round(ev.real_temp_c, 3),
         "implied_temp_c": None if ev.implied_temp_c is None else round(ev.implied_temp_c, 3),
-        "outcome": ev.best_outcome.label,
-        "edge": round(ev.best_outcome.edge, 6),
-        "market_probability": round(ev.best_outcome.market_probability, 6),
-        "fair_probability": round(ev.best_outcome.fair_probability, 6),
-        "expected_roi": round(ev.best_outcome.expected_roi, 6),
-        "kelly_fraction": round(ev.best_outcome.kelly_fraction, 6),
+        "outcome": None if is_pack else (ev.best_outcome.label if ev.best_outcome else None),
+        "package_labels": ev.best_package.labels if is_pack else None,
+        "package_weights": ev.best_package.suggested_weights if is_pack else None,
+        "edge": round(edge, 6),
+        "expected_roi": round(roi, 6),
+        "kelly_fraction": round(kelly, 6),
     }
+    if ev.best_outcome:
+        payload["market_probability"] = round(ev.best_outcome.market_probability, 6)
+        payload["fair_probability"] = round(ev.best_outcome.fair_probability, 6)
     with open(config.OPPORTUNITY_LOG_FILE, "a", encoding="utf-8") as f:
         f.write(json.dumps(payload, ensure_ascii=True) + "\n")
     logger.info(
@@ -238,52 +246,80 @@ def log_opportunity(logger: logging.Logger, ev: MarketEvaluation) -> None:
         ev.city,
         ev.date_text,
         ev.recommended_action,
-        100 * ev.best_outcome.edge,
-        100 * ev.best_outcome.expected_roi,
-        100 * ev.best_outcome.kelly_fraction,
+        100 * edge,
+        100 * roi,
+        100 * kelly,
     )
 
 
 def print_console_dashboard(
-    evaluations: list[MarketEvaluation],
+    rows: list[dict[str, Any]],
     scanned_count: int,
     skipped_count: int,
     elapsed_s: float,
 ) -> None:
     print()
-    print("=" * 106)
+    print("=" * 116)
     print(
         f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] "
-        f"Markets={scanned_count}  Signals={len(evaluations)}  Skipped={skipped_count}  Elapsed={elapsed_s:.1f}s"
+        f"Markets={scanned_count}  Signals={len(rows)}  Skipped={skipped_count}  Elapsed={elapsed_s:.1f}s"
     )
-    print("-" * 106)
-    print(f"{'City':16} {'Date':13} {'Action':20} {'Edge%':>7} {'ROI%':>7} {'Kelly%':>7} {'RealC':>7} {'ImplC':>7}")
-    print("-" * 106)
-    for ev in evaluations[:25]:
+    print("-" * 116)
+    print(
+        f"{'City':16} {'Rel':4} {'Date':13} {'Action':20} "
+        f"{'Edge%':>7} {'Net%':>7} {'RiskC':>7} {'ROI%':>7} {'Kelly%':>7} {'RealC':>7} {'ImplC':>7}"
+    )
+    print("-" * 116)
+    for row in rows[:25]:
+        ev: MarketEvaluation = row["evaluation"]
         b = ev.best_outcome
-        if not b:
+        pack = ev.best_package
+        if not b and not pack:
             continue
+        rel = row.get("reliable")
+        rel_txt = "yes" if rel is True else ("no" if rel is False else "n/a")
+        is_pack = ev.recommended_action.startswith("BUY PACK") and pack is not None
+        edge = pack.edge_sum if is_pack else (b.edge if b else 0.0)
+        roi = pack.expected_roi if is_pack else (b.expected_roi if b else 0.0)
+        kelly = 0.0 if is_pack else (b.kelly_fraction if b else 0.0)
+        net_edge = row.get("net_edge", edge)
+        station_gap_c = row.get("station_gap_c", 0.0)
         impl = "n/a" if ev.implied_temp_c is None else f"{ev.implied_temp_c:.1f}"
         print(
-            f"{ev.city[:16]:16} {ev.date_text[:13]:13} {ev.recommended_action[:20]:20} "
-            f"{100*b.edge:7.1f} {100*b.expected_roi:7.1f} {100*b.kelly_fraction:7.1f} "
+            f"{ev.city[:16]:16} {rel_txt:4} {ev.date_text[:13]:13} {ev.recommended_action[:20]:20} "
+            f"{100*edge:7.1f} {100*net_edge:7.1f} {station_gap_c:7.2f} {100*roi:7.1f} {100*kelly:7.1f} "
             f"{ev.real_temp_c:7.1f} {impl:>7}"
         )
-    if not evaluations:
+    if not rows:
         print("No actionable opportunities in this cycle.")
-    print("=" * 106)
+    print("=" * 116)
 
 
-def run_monitor_loop(once: bool = False) -> None:
+def run_monitor_loop(once: bool = False, relaxed_risk: bool = False) -> None:
     logger = setup_logger()
     poly = PolymarketClient(timeout_seconds=config.REQUEST_TIMEOUT_SECONDS)
     aggregator = WeatherAggregator(timeout_seconds=config.REQUEST_TIMEOUT_SECONDS)
-    engine = StatsEngine()
+    engine = StatsEngine(
+        safety_margin_c=(max(0.2, config.SAFETY_MARGIN_C * 0.5) if relaxed_risk else config.SAFETY_MARGIN_C),
+        min_edge_to_trade=(max(0.005, config.MIN_EDGE_TO_TRADE * 0.25) if relaxed_risk else config.MIN_EDGE_TO_TRADE),
+        kelly_fraction=config.KELLY_FRACTION,
+        max_kelly_fraction=config.MAX_KELLY_FRACTION,
+    )
     coord_cache: dict[str, tuple[float, float]] = {}
+    reliability_map: dict[str, bool] = {}
+    min_sources_for_signal = 1 if relaxed_risk else config.MIN_SOURCES_FOR_SIGNAL
+    min_net_edge_to_trade = -0.50 if relaxed_risk else config.MIN_NET_EDGE_TO_TRADE
+    station_penalty_scale = 0.35 if relaxed_risk else 1.0
+
+    try:
+        audit = run_statistical_audit(days=730, train_ratio=0.7)
+        reliability_map = {c.city_key: c.model_reliable for c in audit.cities}
+    except Exception as exc:
+        logger.warning("Reliability audit unavailable at startup: %s", exc)
 
     while True:
         cycle_start = time.time()
-        actionable: list[MarketEvaluation] = []
+        actionable_rows: list[dict[str, Any]] = []
         skipped = 0
 
         try:
@@ -312,22 +348,60 @@ def run_monitor_loop(once: bool = False) -> None:
                 skipped += 1
                 continue
 
-            if len(agg.cleaned_samples) < config.MIN_SOURCES_FOR_SIGNAL:
+            if len(agg.cleaned_samples) < min_sources_for_signal:
                 skipped += 1
                 continue
 
             sigma = float(agg.stats.get("cleaned", {}).get("stdev", 1.5) or 1.5)
             ev = engine.evaluate_market(market, real_temp_c=agg.median_c, sigma_c=sigma, poly_client=poly)
             if ev.recommended_action == "SKIP":
+                if not relaxed_risk:
+                    skipped += 1
+                    continue
+                if ev.best_package:
+                    ev.recommended_action = f"WATCH PACK {' | '.join(ev.best_package.labels)}"
+                elif ev.best_outcome:
+                    ev.recommended_action = f"WATCH {ev.best_outcome.label}"
+                else:
+                    skipped += 1
+                    continue
+
+            city_key = _to_coord_key(market.city)
+            reliable = reliability_map.get(city_key)
+            is_pack = ev.recommended_action.startswith("BUY PACK") and ev.best_package is not None
+            if is_pack:
+                exec_cost = _estimate_package_execution_cost(
+                    market,
+                    ev.best_package.labels,
+                    ev.best_package.suggested_weights,
+                )
+                raw_edge = ev.best_package.edge_sum
+            else:
+                exec_cost = _estimate_execution_cost(market, ev.best_outcome.label if ev.best_outcome else "")
+                raw_edge = ev.best_outcome.edge if ev.best_outcome else 0.0
+            station_gap_c, station_penalty = _estimate_station_risk_penalty(market.city, agg)
+            station_penalty *= station_penalty_scale
+            net_edge = raw_edge - exec_cost - station_penalty
+            if net_edge < min_net_edge_to_trade:
                 skipped += 1
                 continue
 
-            actionable.append(ev)
-            log_opportunity(logger, ev)
+            actionable_rows.append(
+                {
+                    "evaluation": ev,
+                    "reliable": reliable,
+                    "exec_cost": exec_cost,
+                    "net_edge": net_edge,
+                    "station_gap_c": station_gap_c,
+                    "station_penalty": station_penalty,
+                }
+            )
+            if ev.recommended_action.startswith("BUY"):
+                log_opportunity(logger, ev)
 
-        actionable.sort(key=lambda x: (x.best_outcome.edge if x.best_outcome else 0.0), reverse=True)
+        actionable_rows.sort(key=lambda x: x.get("net_edge", 0.0), reverse=True)
         print_console_dashboard(
-            evaluations=actionable,
+            rows=actionable_rows,
             scanned_count=len(markets),
             skipped_count=skipped,
             elapsed_s=time.time() - cycle_start,
@@ -336,6 +410,86 @@ def run_monitor_loop(once: bool = False) -> None:
         if once:
             break
         time.sleep(config.MONITOR_INTERVAL_SECONDS)
+
+
+def _to_coord_key(city_name: str) -> str:
+    city = city_name.lower().strip()
+    alias = config.CITY_ALIASES.get(city)
+    if alias:
+        return alias
+    if "london" in city:
+        return "london_city"
+    if "new york" in city or "laguardia" in city or "nyc" in city:
+        return "new_york_laguardia"
+    if "seoul" in city or "incheon" in city or "seul" in city:
+        return "seoul_incheon"
+    return city.replace(" ", "_")
+
+
+def _estimate_execution_cost(market: MarketSnapshot, outcome_label: str) -> float:
+    """
+    Cost in probability points (0..1) used to derive net edge:
+    - half-spread from visible bid/ask when available
+    - fallback conservative micro-cost when book is sparse
+    """
+    if not outcome_label:
+        return 0.015
+    quote = next((o for o in market.outcomes if o.label == outcome_label), None)
+    if quote and quote.best_bid is not None and quote.best_ask is not None and quote.best_ask >= quote.best_bid:
+        return max(0.0, (quote.best_ask - quote.best_bid) / 2.0)
+    return 0.015
+
+
+def _estimate_package_execution_cost(
+    market: MarketSnapshot,
+    labels: list[str],
+    weights: list[float] | None,
+) -> float:
+    if not labels:
+        return 0.02
+    if not weights or len(weights) != len(labels):
+        weights = [1.0 / len(labels)] * len(labels)
+    total = 0.0
+    for label, w in zip(labels, weights):
+        total += _estimate_execution_cost(market, label) * max(0.0, float(w))
+    # Add a small coordination penalty for multi-leg execution.
+    return total + 0.003
+
+
+def _estimate_station_risk_penalty(city_name: str, agg: AggregateResult) -> tuple[float, float]:
+    """
+    Returns:
+    - station_gap_c: model-vs-station proxy temperature gap in Celsius
+    - penalty: edge penalty in probability points (0..1)
+    """
+    source_temps = agg.stats.get("source_temps", {})
+    if not isinstance(source_temps, dict) or not source_temps:
+        return 0.0, 0.0
+
+    proxy_vals: list[float] = []
+    model_vals: list[float] = []
+    for source, value in source_temps.items():
+        try:
+            v = float(value)
+        except (TypeError, ValueError):
+            continue
+        if source in config.STATION_PROXY_SOURCES:
+            proxy_vals.append(v)
+        else:
+            model_vals.append(v)
+
+    if proxy_vals and model_vals:
+        station_proxy = sum(proxy_vals) / len(proxy_vals)
+        model_consensus = sum(model_vals) / len(model_vals)
+        gap = abs(station_proxy - model_consensus)
+    else:
+        # Fallback: dispersion is a proxy for uncertainty around station alignment.
+        gap = float(agg.stats.get("cleaned", {}).get("stdev", 0.0) or 0.0)
+
+    city_bias = float(config.CITY_STATION_BIAS_C.get(_to_coord_key(city_name), 0.0))
+    station_gap_c = gap + abs(city_bias)
+    penalty = min(config.STATION_RISK_MAX_PENALTY, station_gap_c * config.STATION_RISK_PENALTY_PER_C)
+    return station_gap_c, penalty
 
 
 def market_to_api_event(market: MarketSnapshot) -> dict[str, Any]:
@@ -412,24 +566,29 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
 
     def do_POST(self):
         parsed = urllib.parse.urlparse(self.path)
+        path = parsed.path.rstrip("/") or "/"
         body = self._read_json_body()
 
-        if parsed.path == "/api/control/monitor/start":
+        if path == "/api/control/monitor/start":
             ok, msg = _start_monitor_process()
             self.send_json({"ok": ok, "message": msg, "status": _control_status()})
             return
 
-        if parsed.path == "/api/control/monitor/stop":
+        if path == "/api/control/monitor/stop":
             ok, msg = _stop_monitor_process()
             self.send_json({"ok": ok, "message": msg, "status": _control_status()})
             return
 
-        if parsed.path == "/api/control/monitor/once":
+        if path == "/api/control/monitor/once":
             task_id = _start_task("monitor_once", ["monitor", "--once"])
             self.send_json({"ok": True, "task_id": task_id, "status": _control_status()})
             return
+        if path in ("/api/control/monitor/once/relaxed", "/api/control/monitor/relaxed"):
+            task_id = _start_task("monitor_once_relaxed", ["monitor", "--once", "--relaxed-risk"])
+            self.send_json({"ok": True, "task_id": task_id, "status": _control_status()})
+            return
 
-        if parsed.path == "/api/control/validate":
+        if path == "/api/control/validate":
             days = int(body.get("days", 730))
             train_ratio = float(body.get("train_ratio", 0.7))
             apply_best = bool(body.get("apply_best", False))
@@ -484,6 +643,11 @@ def parse_args() -> argparse.Namespace:
 
     mon = sub.add_parser("monitor", help="Run monitoring loop")
     mon.add_argument("--once", action="store_true", help="Run one cycle and exit")
+    mon.add_argument(
+        "--relaxed-risk",
+        action="store_true",
+        help="Relax filters to inspect more candidates (best with --once)",
+    )
 
     web = sub.add_parser("web", help="Run dashboard HTTP server")
     web.add_argument("--bind", default=DEFAULT_BIND)
@@ -497,6 +661,10 @@ def parse_args() -> argparse.Namespace:
     val.add_argument("--days", type=int, default=730)
     val.add_argument("--train-ratio", type=float, default=0.7)
     val.add_argument("--apply-best", action="store_true", help="Apply train-selected params after validation")
+
+    aud = sub.add_parser("audit", help="Statistical audit first, then market comparison")
+    aud.add_argument("--days", type=int, default=730)
+    aud.add_argument("--train-ratio", type=float, default=0.7)
 
     parser.set_defaults(mode="monitor")
     return parser.parse_args()
@@ -580,5 +748,32 @@ if __name__ == "__main__":
         if getattr(args, "apply_best", False):
             apply_calibration_to_config(bp)
             print("Applied train-selected params to config.py")
+    elif args.mode == "audit":
+        report = run_statistical_audit(days=max(365, int(args.days)), train_ratio=max(0.55, min(0.9, float(args.train_ratio))))
+        print(
+            f"Audit | days={report.days} train_ratio={report.train_ratio:.2f} "
+            f"reliable={report.summary['reliable_cities']}/{report.summary['total_cities']}"
+        )
+        print(report.summary["north"])
+        print("-" * 118)
+        print(
+            f"{'City':22} {'Rel':4} {'MAE(test)':>10} {'RMSE(test)':>11} {'Brier':>8} "
+            f"{'Cov90':>8} {'TempNow':>9} {'PM_Impl':>9} {'EdgeC':>8}"
+        )
+        print("-" * 118)
+        for c in report.cities:
+            temp_now = "n/a" if c.current_estimated_max_c is None else f"{c.current_estimated_max_c:.1f}"
+            pm_imp = "n/a" if c.polymarket_implied_c is None else f"{c.polymarket_implied_c:.1f}"
+            edge = "n/a" if c.current_edge_c is None else f"{c.current_edge_c:+.1f}"
+            print(
+                f"{c.city_key:22} {('yes' if c.model_reliable else 'no'):4} "
+                f"{c.test_mae_c:10.2f} {c.test_rmse_c:11.2f} {c.test_brier:8.3f} "
+                f"{c.interval90_coverage:8.2f} {temp_now:>9} {pm_imp:>9} {edge:>8}"
+            )
+        print("-" * 118)
+        print(f"ready_for_market_step={report.summary['ready_for_market_step']}")
     else:
-        run_monitor_loop(once=bool(getattr(args, "once", False)))
+        run_monitor_loop(
+            once=bool(getattr(args, "once", False)),
+            relaxed_risk=bool(getattr(args, "relaxed_risk", False)),
+        )

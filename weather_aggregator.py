@@ -157,6 +157,7 @@ class WeatherAggregator:
             "dropped_count": len(dropped),
             "sources_used": [s.source for s in cleaned],
             "sources_dropped": [s.source for s in dropped],
+            "source_temps": {s.source: s.temp_c for s in cleaned},
         }
 
     def _build_sources(self) -> list[WeatherSource]:
@@ -285,4 +286,3 @@ def _parse_openweather_max(data: JsonDict) -> float | None:
         except (TypeError, ValueError):
             continue
     return max(values) if values else None
-

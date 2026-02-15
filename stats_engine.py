@@ -1,4 +1,4 @@
-"""
+﻿"""
 Stats/arbitrage engine for Polymarket weather contracts.
 """
 from __future__ import annotations
@@ -8,7 +8,7 @@ import re
 from dataclasses import dataclass, field
 
 import config
-from poly_client import MarketSnapshot, OutcomeQuote, PolymarketClient
+from poly_client import MarketSnapshot, PolymarketClient
 
 
 @dataclass(slots=True)
@@ -22,6 +22,16 @@ class OutcomeEvaluation:
 
 
 @dataclass(slots=True)
+class PackageEvaluation:
+    labels: list[str]
+    market_probability_sum: float
+    fair_probability_sum: float
+    edge_sum: float
+    expected_roi: float
+    suggested_weights: list[float]
+
+
+@dataclass(slots=True)
 class MarketEvaluation:
     title: str
     city: str
@@ -32,6 +42,7 @@ class MarketEvaluation:
     directional_signal: str
     recommended_action: str
     best_outcome: OutcomeEvaluation | None
+    best_package: PackageEvaluation | None
     outcomes: list[OutcomeEvaluation] = field(default_factory=list)
 
 
@@ -71,7 +82,6 @@ class StatsEngine:
             edge = fair_prob - market_prob
             expected_roi = _expected_roi(fair_prob, market_prob)
             kelly = self.kelly_position_fraction(fair_prob, market_prob)
-
             evaluations.append(
                 OutcomeEvaluation(
                     label=out.label,
@@ -85,7 +95,8 @@ class StatsEngine:
 
         evaluations.sort(key=lambda x: x.edge, reverse=True)
         best = evaluations[0] if evaluations else None
-        action = self._choose_action(best, directional_signal)
+        best_package = _build_three_bin_package(evaluations, real_temp_c)
+        action = self._choose_action(best, directional_signal, best_package)
 
         return MarketEvaluation(
             title=market.title,
@@ -97,6 +108,7 @@ class StatsEngine:
             directional_signal=directional_signal,
             recommended_action=action,
             best_outcome=best,
+            best_package=best_package,
             outcomes=evaluations,
         )
 
@@ -114,12 +126,18 @@ class StatsEngine:
         price = min(1.0, max(0.0, market_probability))
         if price <= 0 or price >= 1:
             return 0.0
-        # For a $1 binary share bought at `price`, full Kelly is (p - price) / (1 - price).
         full = (p - price) / (1 - price)
         scaled = max(0.0, full) * self.kelly_fraction
         return min(self.max_kelly_fraction, scaled)
 
-    def _choose_action(self, best: OutcomeEvaluation | None, directional_signal: str) -> str:
+    def _choose_action(
+        self,
+        best: OutcomeEvaluation | None,
+        directional_signal: str,
+        package: PackageEvaluation | None,
+    ) -> str:
+        if package and package.edge_sum >= (self.min_edge_to_trade * 1.5):
+            return f"BUY PACK {' | '.join(package.labels)}"
         if best is None:
             return "SKIP"
         if directional_signal == "HOLD":
@@ -157,16 +175,16 @@ def _f_to_c(v: float) -> float:
 
 
 def _parse_range_to_c(label: str) -> tuple[float, float] | None:
-    is_f = bool(re.search(r"°?\s*F", label, flags=re.IGNORECASE))
+    is_f = bool(re.search(r"[°º]?\s*F", label, flags=re.IGNORECASE))
 
     def conv(x: float) -> float:
         return _f_to_c(x) if is_f else x
 
-    m = re.search(r"([-\d.]+)\s*°?\s*[FC]?\s*(?:or below|ou menos)", label, flags=re.IGNORECASE)
+    m = re.search(r"([-\d.]+)\s*[°º]?\s*[FC]?\s*(?:or below|ou menos)", label, flags=re.IGNORECASE)
     if m:
         return float("-inf"), conv(float(m.group(1)))
 
-    m = re.search(r"([-\d.]+)\s*°?\s*[FC]?\s*(?:or higher|ou mais)", label, flags=re.IGNORECASE)
+    m = re.search(r"([-\d.]+)\s*[°º]?\s*[FC]?\s*(?:or higher|ou mais)", label, flags=re.IGNORECASE)
     if m:
         return conv(float(m.group(1))), float("inf")
 
@@ -176,10 +194,79 @@ def _parse_range_to_c(label: str) -> tuple[float, float] | None:
         hi = conv(float(m.group(2)))
         return (min(lo, hi), max(lo, hi))
 
-    m = re.search(r"([-\d.]+)\s*°?\s*[FC]", label, flags=re.IGNORECASE)
+    m = re.search(r"([-\d.]+)\s*[°º]?\s*[FC]", label, flags=re.IGNORECASE)
     if m:
         v = conv(float(m.group(1)))
         return v - 0.5, v + 0.5
 
     return None
 
+
+def _range_midpoint(lo: float, hi: float) -> float | None:
+    if math.isinf(lo) and math.isinf(hi):
+        return None
+    if math.isinf(lo):
+        return hi - 1.0
+    if math.isinf(hi):
+        return lo + 1.0
+    return (lo + hi) / 2.0
+
+
+def _build_three_bin_package(outcomes: list[OutcomeEvaluation], mu_c: float) -> PackageEvaluation | None:
+    pts: list[tuple[float, OutcomeEvaluation]] = []
+    for o in outcomes:
+        parsed = _parse_range_to_c(o.label)
+        if not parsed:
+            continue
+        mid = _range_midpoint(parsed[0], parsed[1])
+        if mid is None:
+            continue
+        pts.append((mid, o))
+
+    if len(pts) < 3:
+        return None
+    pts.sort(key=lambda x: x[0])
+
+    best_win: list[tuple[float, OutcomeEvaluation]] | None = None
+    best_score = -1e9
+    for i in range(len(pts) - 2):
+        w = pts[i : i + 3]
+        gaps = [w[j + 1][0] - w[j][0] for j in range(2)]
+        if any(g > 3.0 for g in gaps):
+            continue
+        fair_sum = sum(x[1].fair_probability for x in w)
+        market_sum = sum(x[1].market_probability for x in w)
+        edge_sum = fair_sum - market_sum
+        center = sum(x[0] for x in w) / 3.0
+        score = edge_sum - abs(center - mu_c) * 0.01
+        if score > best_score:
+            best_score = score
+            best_win = w
+
+    if not best_win:
+        return None
+
+    labels = [x[1].label for x in best_win]
+    fair_sum = sum(x[1].fair_probability for x in best_win)
+    market_sum = sum(x[1].market_probability for x in best_win)
+    if market_sum <= 0:
+        return None
+    edge_sum = fair_sum - market_sum
+    expected_roi = (fair_sum / market_sum) - 1.0
+
+    pos_edges = [max(0.0, x[1].edge) for x in best_win]
+    if sum(pos_edges) > 0:
+        weights = [e / sum(pos_edges) for e in pos_edges]
+    else:
+        weights = [x[1].fair_probability for x in best_win]
+        s = sum(weights)
+        weights = [w / s for w in weights] if s > 0 else [1 / 3, 1 / 3, 1 / 3]
+
+    return PackageEvaluation(
+        labels=labels,
+        market_probability_sum=market_sum,
+        fair_probability_sum=fair_sum,
+        edge_sum=edge_sum,
+        expected_roi=expected_roi,
+        suggested_weights=weights,
+    )

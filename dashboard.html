@@ -57,6 +57,12 @@
     .control-tasks,.control-logs{background:rgba(0,0,0,0.25);border:1px solid var(--border);border-radius:8px;padding:8px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;max-height:140px;overflow:auto}
     .control-tasks{margin-bottom:8px}
     .control-empty{color:rgba(156,163,175,0.7);font-style:italic}
+    .control-details{margin-top:8px}
+    .control-details summary{cursor:pointer;color:var(--muted);font-size:12px}
+    .control-details[open] summary{margin-bottom:6px}
+    .quick-guide{margin-bottom:12px;padding:10px 12px;border-radius:10px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.18)}
+    .quick-guide-title{font-size:13px;font-weight:700;color:var(--green);margin-bottom:4px}
+    .quick-guide-text{font-size:12px;color:#d1d5db;line-height:1.45}
 
     /* Cards */
     .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;margin-bottom:24px}
@@ -168,6 +174,14 @@
 
   <div class="control-panel">
     <div class="control-title">Central de Controle</div>
+    <div class="quick-guide">
+      <div class="quick-guide-title">Como ler rápido</div>
+      <div class="quick-guide-text">
+        1) Rode <strong>Monitor (1 ciclo - relaxado)</strong> para ver candidatos.<br>
+        2) Se aparecer edge consistente, use <strong>Monitor contínuo</strong>.<br>
+        3) Use <strong>Validar OOS</strong> para confirmar robustez antes de aumentar exposição.
+      </div>
+    </div>
     <div class="control-status">
       <div id="monitorBadge" class="control-badge badge-off">Monitor: OFF</div>
       <div class="control-meta" id="controlMeta">Atualizando status...</div>
@@ -185,8 +199,13 @@
       </div>
       <div class="control-item">
         <h4>Monitor (1 ciclo)</h4>
-        <p>Faz uma varredura única dos mercados, calcula edge/ROI/Kelly e mostra oportunidades do momento.</p>
+        <p>Varredura padrão, com filtros mais rígidos de risco e qualidade dos dados.</p>
         <button id="btnMonitorOnce">Rodar 1 ciclo</button>
+      </div>
+      <div class="control-item">
+        <h4>Monitor (1 ciclo - relaxado)</h4>
+        <p>Mostra mais candidatos reduzindo filtros de risco somente neste ciclo de inspeção.</p>
+        <button id="btnMonitorOnceRelaxed">Rodar ciclo relaxado</button>
       </div>
       <div class="control-item">
         <h4>Monitor contínuo</h4>
@@ -204,8 +223,14 @@
         <button id="btnRefreshControl" class="stop-btn">Atualizar agora</button>
       </div>
     </div>
-    <div class="control-tasks" id="controlTasks"><div class="control-empty">Sem tarefas recentes.</div></div>
-    <div class="control-logs" id="controlLogs"><div class="control-empty">Sem logs de controle.</div></div>
+    <details class="control-details">
+      <summary>Tarefas recentes</summary>
+      <div class="control-tasks" id="controlTasks"><div class="control-empty">Sem tarefas recentes.</div></div>
+    </details>
+    <details class="control-details">
+      <summary>Logs técnicos</summary>
+      <div class="control-logs" id="controlLogs"><div class="control-empty">Sem logs de controle.</div></div>
+    </details>
   </div>
 
   <div id="cards" class="cards"></div>
@@ -308,7 +333,8 @@ const API = {
   controlValidate: () => '/api/control/validate',
   controlMonitorStart: () => '/api/control/monitor/start',
   controlMonitorStop: () => '/api/control/monitor/stop',
-  controlMonitorOnce: () => '/api/control/monitor/once'
+  controlMonitorOnce: () => '/api/control/monitor/once',
+  controlMonitorOnceRelaxed: () => '/api/control/monitor/once/relaxed'
 };
 
 // â”€â”€â”€ DOM â”€â”€â”€
@@ -324,6 +350,7 @@ const controlLogsEl = document.getElementById('controlLogs');
 document.getElementById('btnValidate').addEventListener('click', () => runControlValidate(false));
 document.getElementById('btnValidateApply').addEventListener('click', () => runControlValidate(true));
 document.getElementById('btnMonitorOnce').addEventListener('click', () => runControlPost(API.controlMonitorOnce()));
+document.getElementById('btnMonitorOnceRelaxed').addEventListener('click', () => runControlPost(API.controlMonitorOnceRelaxed()));
 document.getElementById('btnMonitorStart').addEventListener('click', () => runControlPost(API.controlMonitorStart()));
 document.getElementById('btnMonitorStop').addEventListener('click', () => runControlPost(API.controlMonitorStop()));
 document.getElementById('btnRefreshControl').addEventListener('click', refreshControlStatus);
@@ -389,7 +416,7 @@ function renderControlTasks(tasks) {
     controlTasksEl.innerHTML = '<div class="control-empty">Sem tarefas recentes.</div>';
     return;
   }
-  const rows = tasks.slice().reverse().map(t => {
+  const rows = tasks.slice(-12).reverse().map(t => {
     const code = (t.exit_code == null) ? '' : ` (exit=${t.exit_code})`;
     return `<div>[${esc(t.name)}] ${esc(t.status)}${esc(code)}</div>`;
   });
@@ -401,7 +428,7 @@ function renderControlLogs(logs) {
     controlLogsEl.innerHTML = '<div class="control-empty">Sem logs de controle.</div>';
     return;
   }
-  controlLogsEl.innerHTML = logs.slice(-60).map(l => `<div>${esc(l)}</div>`).join('');
+  controlLogsEl.innerHTML = logs.slice(-35).map(l => `<div>${esc(l)}</div>`).join('');
   controlLogsEl.scrollTop = controlLogsEl.scrollHeight;
 }
 

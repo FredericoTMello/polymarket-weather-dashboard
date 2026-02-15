@@ -1,4 +1,4 @@
-"""
+﻿"""
 Polymarket client for weather temperature markets.
 
 Task 2 scope:
@@ -243,16 +243,16 @@ def _f_to_c(v: float) -> float:
 
 
 def _parse_temp_range_to_c(label: str) -> tuple[float, float] | None:
-    is_f = bool(re.search(r"°?\s*F", label, flags=re.IGNORECASE))
+    is_f = bool(re.search(r"[°º]?\s*F", label, flags=re.IGNORECASE))
 
     def conv(x: float) -> float:
         return _f_to_c(x) if is_f else x
 
-    m = re.search(r"([-\d.]+)\s*°?\s*[FC]?\s*(?:or below|ou menos)", label, flags=re.IGNORECASE)
+    m = re.search(r"([-\d.]+)\s*[°º]?\s*[FC]?\s*(?:or below|ou menos)", label, flags=re.IGNORECASE)
     if m:
         return float("-inf"), conv(float(m.group(1)))
 
-    m = re.search(r"([-\d.]+)\s*°?\s*[FC]?\s*(?:or higher|ou mais)", label, flags=re.IGNORECASE)
+    m = re.search(r"([-\d.]+)\s*[°º]?\s*[FC]?\s*(?:or higher|ou mais)", label, flags=re.IGNORECASE)
     if m:
         return conv(float(m.group(1))), float("inf")
 
@@ -262,7 +262,7 @@ def _parse_temp_range_to_c(label: str) -> tuple[float, float] | None:
         hi = conv(float(m.group(2)))
         return (min(lo, hi), max(lo, hi))
 
-    m = re.search(r"([-\d.]+)\s*°?\s*[FC]", label, flags=re.IGNORECASE)
+    m = re.search(r"([-\d.]+)\s*[°º]?\s*[FC]", label, flags=re.IGNORECASE)
     if m:
         v = conv(float(m.group(1)))
         return v - 0.5, v + 0.5
@@ -280,3 +280,4 @@ def _best_price(book: dict[str, Any], side: str) -> float | None:
     if isinstance(first, dict):
         return _coerce_float(first.get("price"))
     return None
+

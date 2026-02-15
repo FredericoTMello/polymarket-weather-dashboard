@@ -49,6 +49,7 @@ class LauncherApp:
         Button(row1, text="Validate OOS", width=20, command=self.run_validate).pack(side=LEFT, padx=(0, 6))
         Button(row1, text="Validate + Apply", width=20, command=self.run_validate_apply).pack(side=LEFT, padx=(0, 6))
         Button(row1, text="Monitor Once", width=20, command=self.run_monitor_once).pack(side=LEFT, padx=(0, 6))
+        Button(row1, text="Monitor Once (Relaxed)", width=22, command=self.run_monitor_once_relaxed).pack(side=LEFT, padx=(0, 6))
 
         row2 = Frame(top)
         row2.pack(fill=X, pady=(4, 8))
@@ -108,6 +109,9 @@ class LauncherApp:
 
     def run_monitor_once(self) -> None:
         self._run_command_background(["monitor", "--once"], "Monitor Once")
+
+    def run_monitor_once_relaxed(self) -> None:
+        self._run_command_background(["monitor", "--once", "--relaxed-risk"], "Monitor Once (Relaxed)")
 
     def start_monitor_loop(self) -> None:
         with self._lock:
@@ -199,4 +203,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

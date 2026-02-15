@@ -18,6 +18,7 @@ MAX_KELLY_FRACTION = float(os.getenv("MAX_KELLY_FRACTION", "0.10"))
 BANKROLL_USD = float(os.getenv("BANKROLL_USD", "1000"))
 MIN_MARKET_LIQUIDITY = float(os.getenv("MIN_MARKET_LIQUIDITY", "1000"))
 OPPORTUNITY_LOG_FILE = os.getenv("OPPORTUNITY_LOG_FILE", "opportunities.log")
+MIN_NET_EDGE_TO_TRADE = float(os.getenv("MIN_NET_EDGE_TO_TRADE", "0.01"))
 
 # API keys (used by premium providers when available)
 WEATHERAPI_KEY = os.getenv("WEATHERAPI_KEY", "")
@@ -53,3 +54,19 @@ FOCUS_MARKET_CITIES = (
     "new york",
     "seoul",
 )
+
+# Station-alignment controls (resolution station mismatch risk)
+# Proxy feeds are treated as "station-like" while remaining feeds are model consensus.
+STATION_PROXY_SOURCES = (
+    "weatherapi",
+    "tomorrow_io",
+)
+STATION_RISK_PENALTY_PER_C = float(os.getenv("STATION_RISK_PENALTY_PER_C", "0.05"))
+STATION_RISK_MAX_PENALTY = float(os.getenv("STATION_RISK_MAX_PENALTY", "0.12"))
+
+# Optional city-specific static bias (Celsius) to align global models toward airport microclimate.
+CITY_STATION_BIAS_C = {
+    "london_city": 1.0,
+    "new_york_laguardia": 0.6,
+    "seoul_incheon": 0.4,
+}
