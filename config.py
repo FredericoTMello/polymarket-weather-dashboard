@@ -27,18 +27,29 @@ OPENWEATHER_KEY = os.getenv("OPENWEATHER_KEY", "")
 
 # Market cities (airport-aligned for Polymarket temperature markets)
 CITY_COORDS = {
-    "london_heathrow": (51.4700, -0.4543),
-    "new_york_jfk": (40.6413, -73.7781),
-    "tokyo_haneda": (35.5494, 139.7798),
+    "london_city": (51.5053, -0.0553),
+    "new_york_laguardia": (40.7769, -73.8740),
+    "seoul_incheon": (37.4602, 126.4407),
 }
 
 # Aliases to map Polymarket city labels into coord keys.
 CITY_ALIASES = {
-    "london": "london_heathrow",
-    "london (heathrow)": "london_heathrow",
-    "new york": "new_york_jfk",
-    "new york (jfk)": "new_york_jfk",
-    "nyc": "new_york_jfk",
-    "tokyo": "tokyo_haneda",
-    "tokyo (haneda)": "tokyo_haneda",
+    "london": "london_city",
+    "london city": "london_city",
+    "london (city)": "london_city",
+    "new york": "new_york_laguardia",
+    "new york (laguardia)": "new_york_laguardia",
+    "nyc": "new_york_laguardia",
+    "laguardia": "new_york_laguardia",
+    "seoul": "seoul_incheon",
+    "seul": "seoul_incheon",
+    "incheon": "seoul_incheon",
+    "incheon intl": "seoul_incheon",
 }
+
+# Monitor focuses on these city names first (as shown in Polymarket titles).
+FOCUS_MARKET_CITIES = (
+    "london",
+    "new york",
+    "seoul",
+)

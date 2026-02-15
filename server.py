@@ -14,14 +14,17 @@ import http.server
 import json
 import logging
 import os
+import subprocess
+import sys
 import time
+import threading
 import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 from typing import Any
 
 import config
-from calibration import calibrate_parameters
+from calibration import calibrate_parameters, validate_oos
 from poly_client import MarketSnapshot, PolymarketClient
 from stats_engine import MarketEvaluation, StatsEngine
 from weather_aggregator import AggregateResult, WeatherAggregator
@@ -32,6 +35,11 @@ DEFAULT_BIND = "127.0.0.1"
 DASHBOARD_DIR = os.path.dirname(os.path.abspath(__file__))
 
 _cache: dict[str, Any] = {"data": None, "ts": 0.0, "ttl": 300}
+_control_lock = threading.Lock()
+_control_logs: list[str] = []
+_control_tasks: dict[str, dict[str, Any]] = {}
+_task_seq = 0
+_monitor_proc: subprocess.Popen[str] | None = None
 
 
 def setup_logger() -> logging.Logger:
@@ -44,6 +52,113 @@ def setup_logger() -> logging.Logger:
     stream.setFormatter(logging.Formatter("[%(asctime)s] %(levelname)s %(message)s", "%Y-%m-%d %H:%M:%S"))
     logger.addHandler(stream)
     return logger
+
+
+def _control_log(msg: str) -> None:
+    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    line = f"[{ts}] {msg}"
+    with _control_lock:
+        _control_logs.append(line)
+        if len(_control_logs) > 300:
+            del _control_logs[:120]
+
+
+def _start_task(name: str, args: list[str]) -> str:
+    global _task_seq
+    with _control_lock:
+        _task_seq += 1
+        task_id = f"task-{_task_seq}"
+        _control_tasks[task_id] = {
+            "id": task_id,
+            "name": name,
+            "status": "running",
+            "args": args,
+            "started_at": datetime.now(timezone.utc).isoformat(),
+            "finished_at": None,
+            "exit_code": None,
+        }
+
+    def worker() -> None:
+        cmd = [sys.executable, "server.py"] + args
+        _control_log(f"Started {name}: {' '.join(args)}")
+        try:
+            proc = subprocess.Popen(
+                cmd,
+                cwd=DASHBOARD_DIR,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+            )
+            assert proc.stdout is not None
+            for line in proc.stdout:
+                _control_log(f"{name}> {line.rstrip()}")
+            code = proc.wait()
+        except Exception as exc:
+            code = -1
+            _control_log(f"{name} failed: {exc}")
+
+        with _control_lock:
+            t = _control_tasks.get(task_id)
+            if t:
+                t["status"] = "finished" if code == 0 else "failed"
+                t["exit_code"] = code
+                t["finished_at"] = datetime.now(timezone.utc).isoformat()
+        _control_log(f"Finished {name} with exit={code}")
+
+    threading.Thread(target=worker, daemon=True).start()
+    return task_id
+
+
+def _start_monitor_process() -> tuple[bool, str]:
+    global _monitor_proc
+    with _control_lock:
+        if _monitor_proc and _monitor_proc.poll() is None:
+            return False, "Monitor loop already running."
+        try:
+            _monitor_proc = subprocess.Popen(
+                [sys.executable, "server.py", "monitor"],
+                cwd=DASHBOARD_DIR,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+            )
+            proc = _monitor_proc
+        except Exception as exc:
+            return False, f"Failed to start monitor loop: {exc}"
+
+    def stream() -> None:
+        assert proc is not None
+        if proc.stdout:
+            for line in proc.stdout:
+                _control_log(f"monitor> {line.rstrip()}")
+        code = proc.wait()
+        _control_log(f"Monitor loop exited with code {code}")
+        with _control_lock:
+            global _monitor_proc
+            if _monitor_proc is proc:
+                _monitor_proc = None
+
+    threading.Thread(target=stream, daemon=True).start()
+    return True, "Monitor loop started."
+
+
+def _stop_monitor_process() -> tuple[bool, str]:
+    global _monitor_proc
+    with _control_lock:
+        proc = _monitor_proc
+        _monitor_proc = None
+    if not proc or proc.poll() is not None:
+        return False, "Monitor loop is not running."
+    proc.terminate()
+    return True, "Monitor loop stopped."
+
+
+def _control_status() -> dict[str, Any]:
+    with _control_lock:
+        monitor_running = bool(_monitor_proc and _monitor_proc.poll() is None)
+        tasks = list(_control_tasks.values())[-20:]
+        logs = _control_logs[-120:]
+    return {"monitor_running": monitor_running, "tasks": tasks, "logs": logs}
 
 
 def resolve_city_coords(city_name: str, cache: dict[str, tuple[float, float]]) -> tuple[float, float] | None:
@@ -74,6 +189,13 @@ def resolve_city_coords(city_name: str, cache: dict[str, tuple[float, float]]) -
         return cache[key]
     except Exception:
         return None
+
+
+def is_focus_city(city_name: str) -> bool:
+    city = city_name.lower().strip()
+    if not city:
+        return False
+    return any(focus in city for focus in config.FOCUS_MARKET_CITIES)
 
 
 async def fetch_weather_batch(
@@ -170,6 +292,8 @@ def run_monitor_loop(once: bool = False) -> None:
             logger.exception("Failed to fetch Polymarket markets: %s", exc)
             markets = []
 
+        markets = [m for m in markets if is_focus_city(m.city)]
+
         city_coords: dict[str, tuple[float, float]] = {}
         for m in markets:
             coords = resolve_city_coords(m.city, coord_cache)
@@ -254,6 +378,10 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
 
+        if parsed.path == "/api/control/status":
+            self.send_json(_control_status())
+            return
+
         if parsed.path == "/api/polymarket":
             self.send_json(fetch_polymarket_weather_cached())
             return
@@ -282,6 +410,38 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
 
         super().do_GET()
 
+    def do_POST(self):
+        parsed = urllib.parse.urlparse(self.path)
+        body = self._read_json_body()
+
+        if parsed.path == "/api/control/monitor/start":
+            ok, msg = _start_monitor_process()
+            self.send_json({"ok": ok, "message": msg, "status": _control_status()})
+            return
+
+        if parsed.path == "/api/control/monitor/stop":
+            ok, msg = _stop_monitor_process()
+            self.send_json({"ok": ok, "message": msg, "status": _control_status()})
+            return
+
+        if parsed.path == "/api/control/monitor/once":
+            task_id = _start_task("monitor_once", ["monitor", "--once"])
+            self.send_json({"ok": True, "task_id": task_id, "status": _control_status()})
+            return
+
+        if parsed.path == "/api/control/validate":
+            days = int(body.get("days", 730))
+            train_ratio = float(body.get("train_ratio", 0.7))
+            apply_best = bool(body.get("apply_best", False))
+            args = ["validate", "--days", str(max(365, days)), "--train-ratio", str(max(0.5, min(0.9, train_ratio)))]
+            if apply_best:
+                args.append("--apply-best")
+            task_id = _start_task("validate", args)
+            self.send_json({"ok": True, "task_id": task_id, "status": _control_status()})
+            return
+
+        self.send_json({"ok": False, "error": "Unknown control endpoint"}, status=404)
+
     def send_json(self, data: Any, status: int = 200):
         body = json.dumps(data).encode("utf-8")
         self.send_response(status)
@@ -293,6 +453,20 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
 
     def log_message(self, format: str, *args):
         pass
+
+    def _read_json_body(self) -> dict[str, Any]:
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+        except ValueError:
+            length = 0
+        if length <= 0:
+            return {}
+        raw = self.rfile.read(length).decode("utf-8", errors="replace")
+        try:
+            data = json.loads(raw)
+            return data if isinstance(data, dict) else {}
+        except json.JSONDecodeError:
+            return {}
 
 
 def run_web(bind: str, port: int) -> None:
@@ -318,6 +492,11 @@ def parse_args() -> argparse.Namespace:
     cal = sub.add_parser("calibrate", help="Calibrate trading thresholds from historical data")
     cal.add_argument("--days", type=int, default=365)
     cal.add_argument("--apply", action="store_true", help="Persist best params into config.py")
+
+    val = sub.add_parser("validate", help="Out-of-sample temporal validation")
+    val.add_argument("--days", type=int, default=730)
+    val.add_argument("--train-ratio", type=float, default=0.7)
+    val.add_argument("--apply-best", action="store_true", help="Apply train-selected params after validation")
 
     parser.set_defaults(mode="monitor")
     return parser.parse_args()
@@ -363,10 +542,43 @@ if __name__ == "__main__":
             f"SAFETY_MARGIN_C={best.safety_margin_c:.2f} "
             f"MIN_EDGE_TO_TRADE={best.min_edge_to_trade:.2f} "
             f"KELLY_FRACTION={best.kelly_fraction:.2f} | "
-            f"precision={best.precision:.3f} recall={best.recall:.3f} trades={best.trade_count}"
+            f"precision={best.metrics.precision:.3f} recall={best.metrics.recall:.3f} trades={best.metrics.trade_count}"
         )
         if getattr(args, "apply", False):
             apply_calibration_to_config(best)
             print("Applied calibrated params to config.py")
+    elif args.mode == "validate":
+        report = validate_oos(days=max(365, int(args.days)), train_ratio=max(0.5, min(0.9, float(args.train_ratio))))
+        if not report:
+            print("Validation failed: insufficient historical data.")
+            raise SystemExit(1)
+        bp = report.best_params
+        print(
+            "Best(train) params | "
+            f"SAFETY_MARGIN_C={bp.safety_margin_c:.2f} "
+            f"MIN_EDGE_TO_TRADE={bp.min_edge_to_trade:.2f} "
+            f"KELLY_FRACTION={bp.kelly_fraction:.2f}"
+        )
+        print(
+            "Train metrics | "
+            f"precision={report.train_metrics.precision:.3f} "
+            f"recall={report.train_metrics.recall:.3f} "
+            f"trades={report.train_metrics.trade_count}"
+        )
+        print(
+            "Test metrics (OOS) | "
+            f"precision={report.test_metrics.precision:.3f} "
+            f"recall={report.test_metrics.recall:.3f} "
+            f"trades={report.test_metrics.trade_count}"
+        )
+        print(
+            "Walk-forward metrics | "
+            f"precision={report.walk_forward_metrics.precision:.3f} "
+            f"recall={report.walk_forward_metrics.recall:.3f} "
+            f"trades={report.walk_forward_metrics.trade_count}"
+        )
+        if getattr(args, "apply_best", False):
+            apply_calibration_to_config(bp)
+            print("Applied train-selected params to config.py")
     else:
         run_monitor_loop(once=bool(getattr(args, "once", False)))
