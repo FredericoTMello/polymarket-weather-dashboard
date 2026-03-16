@@ -15,6 +15,15 @@ Fase 1 concluida.
 Fase 2 concluida.
 Fase 3 concluida.
 Ciclo market-first concluido.
+Passe visual de MVP concluido.
+
+Estado ao fim deste ciclo:
+
+- fluxo principal market-first funcionando no navegador
+- tela principal reorganizada em torno do contrato
+- loading e estados intermediarios mais claros
+- visual mais apresentavel para exploracao do produto
+- proximo ciclo recomendado: confiabilidade semantica do contrato
 
 ## Goal
 
@@ -240,3 +249,13 @@ O projeto passa a parecer um MVP real quando estas condicoes estiverem juntas:
 - fluxo local simples e repetivel
 
 Antes disso, ele continua sendo uma base forte de prototipo. Depois disso, passa a ter forma clara de produto.
+
+## Handoff Para Amanha
+
+O market-first ja esta suficientemente claro para exploracao visual do produto.
+
+O foco recomendado para o proximo turno e:
+
+1. retomar confiabilidade semantica do contrato
+2. endurecer parsing e interpretacao onde ainda ha heuristica demais
+3. preservar a UX atual, mexendo mais em semantica do que em layout

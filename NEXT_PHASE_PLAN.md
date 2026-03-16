@@ -4,6 +4,13 @@
 
 O projeto saiu de um dashboard local fragil e passou a ter um baseline executavel, com uma leitura unica por cidade/mercado, contrato de dados mais claro, separacao tecnica minima e testes no nucleo analitico.
 
+Ao fim do ultimo ciclo, o projeto tambem passou por um passe forte de UX/UI:
+
+- hero e entrada principal mais claros
+- fluxo market-first mais legivel para exploracao
+- card principal mais apresentavel
+- hierarquia visual mais coerente com o MVP atual
+
 Hoje o repositorio tem:
 
 - `server.py` como servidor local e proxy simples do Polymarket
@@ -99,6 +106,11 @@ Razao:
 - hoje o maior risco ainda esta na interpretacao do mercado, nao na ausencia de features de SaaS
 - se o contrato do mercado continuar parcialmente inferido, qualquer camada de produto em cima disso amplifica erro
 - depois que a leitura do mercado estiver mais solida, a UX market-first fica muito mais natural
+
+Observacao:
+
+- o refinamento visual necessario para explorar o MVP ja foi feito em nivel suficiente
+- o proximo ganho real vem mais de confiabilidade semantica do que de mais polish visual
 
 ## Proximo Ciclo Sugerido
 

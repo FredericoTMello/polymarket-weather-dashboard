@@ -4,14 +4,33 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Weather Intelligence — Polymarket</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
-    :root{--bg:#0b1220;--card:#111827;--border:#1f2937;--muted:#9ca3af;--accent:#8b5cf6;--hot:#ef4444;--cold:#3b82f6;--green:#22c55e;--yellow:#eab308;--orange:#f97316;--text:#f3f4f6}
+    :root{--bg:#071017;--bg-elev:#0d1c25;--card:#10202a;--card-strong:#152b38;--border:rgba(148,163,184,0.16);--muted:#8da3b2;--accent:#ff8a3d;--accent-soft:#ffd166;--cyan:#4dd0e1;--hot:#f87171;--cold:#60a5fa;--green:#34d399;--yellow:#fbbf24;--orange:#fb923c;--text:#f8fafc;--shadow:0 24px 80px rgba(0,0,0,0.35)}
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
-    .container{max-width:1280px;margin:0 auto;padding:20px}
-    h1{font-size:22px;font-weight:700;margin-bottom:4px}
-    .sub{color:var(--muted);font-size:13px;margin-bottom:16px}
+    body{font-family:'Space Grotesk',system-ui,sans-serif;background:
+      radial-gradient(circle at top left,rgba(255,138,61,0.15),transparent 30%),
+      radial-gradient(circle at top right,rgba(77,208,225,0.14),transparent 26%),
+      linear-gradient(180deg,#071017 0%,#09141c 45%,#071017 100%);color:var(--text);min-height:100vh}
+    .container{max-width:1240px;margin:0 auto;padding:28px 20px 40px}
+    .page-hero{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(280px,0.9fr);gap:18px;align-items:stretch;margin-bottom:18px}
+    .hero-panel,.hero-metrics{background:linear-gradient(180deg,rgba(16,32,42,0.92),rgba(9,20,28,0.96));border:1px solid rgba(148,163,184,0.14);border-radius:24px;box-shadow:var(--shadow)}
+    .hero-panel{padding:28px;position:relative;overflow:hidden}
+    .hero-panel::after{content:"";position:absolute;inset:auto -60px -80px auto;width:220px;height:220px;border-radius:999px;background:radial-gradient(circle,rgba(255,138,61,0.18),transparent 65%)}
+    .hero-metrics{padding:20px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+    .eyebrow{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;background:rgba(255,209,102,0.10);border:1px solid rgba(255,209,102,0.18);color:var(--accent-soft);font:600 11px 'IBM Plex Mono',monospace;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:14px}
+    h1{font-size:clamp(32px,5vw,52px);font-weight:700;line-height:0.98;max-width:10ch;margin-bottom:10px}
+    .sub{color:#c3d2db;font-size:15px;line-height:1.6;max-width:62ch}
+    .hero-note{margin-top:18px;display:flex;gap:10px;flex-wrap:wrap}
+    .hero-chip{padding:8px 12px;border-radius:999px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.07);font-size:12px;color:#dbe7ee}
+    .hero-stat{padding:14px 14px 16px;border-radius:18px;background:linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02));border:1px solid rgba(255,255,255,0.06)}
+    .hero-stat-label{font:600 11px 'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:8px}
+    .hero-stat-value{font-size:22px;font-weight:700;color:var(--text);margin-bottom:6px}
+    .hero-stat-copy{font-size:12px;line-height:1.5;color:#b4c3ce}
+    .container > h1,.container > .sub{display:none}
 
     /* Favorites */
     .fav-section{display:none}
@@ -24,14 +43,21 @@
     .fav-empty{font-size:12px;color:rgba(156,163,175,0.5);font-style:italic}
 
     /* Search */
-    .search-wrapper{position:relative;display:flex;gap:10px;margin-bottom:16px}
-    .search-wrapper input{flex:1;padding:12px 16px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:15px;outline:none}
-    .search-wrapper input:focus{border-color:var(--accent)}
-    .search-wrapper button{padding:12px 20px;border-radius:10px;background:var(--accent);border:none;color:white;font-weight:600;cursor:pointer;font-size:14px;white-space:nowrap}
-    .search-wrapper button:hover{opacity:0.9}
-    .dropdown{position:absolute;top:100%;left:0;right:80px;background:var(--card);border:1px solid var(--border);border-radius:10px;max-height:260px;overflow-y:auto;z-index:100;display:none;margin-top:4px;box-shadow:0 8px 24px rgba(0,0,0,0.5)}
+    .search-grid{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(320px,0.9fr);gap:14px;margin-bottom:14px}
+    .search-panel{padding:18px;border-radius:22px;background:linear-gradient(180deg,rgba(16,32,42,0.92),rgba(12,27,36,0.94));border:1px solid rgba(148,163,184,0.14);box-shadow:var(--shadow)}
+    .search-panel-primary{border-color:rgba(255,138,61,0.18)}
+    .search-panel-secondary{background:linear-gradient(180deg,rgba(12,26,34,0.92),rgba(9,20,28,0.96))}
+    .search-panel-label{font:600 11px 'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:8px}
+    .search-panel-title{font-size:20px;font-weight:700;line-height:1.1;margin-bottom:6px}
+    .search-panel-copy{font-size:13px;line-height:1.5;color:#b4c3ce;margin-bottom:14px}
+    .search-wrapper{position:relative;display:flex;gap:10px}
+    .search-wrapper input{flex:1;padding:14px 16px;border-radius:16px;border:1px solid rgba(148,163,184,0.18);background:rgba(7,16,23,0.72);color:var(--text);font-size:15px;outline:none;transition:border-color 0.2s, box-shadow 0.2s, transform 0.2s}
+    .search-wrapper input:focus{border-color:rgba(77,208,225,0.46);box-shadow:0 0 0 4px rgba(77,208,225,0.10)}
+    .search-wrapper button{padding:14px 18px;border-radius:16px;background:linear-gradient(135deg,var(--accent),#ff6b35);border:none;color:#081017;font-weight:700;cursor:pointer;font-size:13px;letter-spacing:0.01em;white-space:nowrap;transition:transform 0.18s, box-shadow 0.18s;box-shadow:0 16px 32px rgba(255,107,53,0.25)}
+    .search-wrapper button:hover{transform:translateY(-1px)}
+    .dropdown{position:absolute;top:100%;left:0;right:98px;background:rgba(9,20,28,0.98);border:1px solid rgba(148,163,184,0.16);border-radius:16px;max-height:260px;overflow-y:auto;z-index:100;display:none;margin-top:8px;box-shadow:0 24px 40px rgba(0,0,0,0.35)}
     .dropdown-item{padding:12px 16px;cursor:pointer;font-size:14px;border-bottom:1px solid rgba(255,255,255,0.03)}
-    .dropdown-item:hover{background:rgba(139,92,246,0.1)}
+    .dropdown-item:hover{background:rgba(77,208,225,0.08)}
     .dropdown-item:last-child{border-bottom:none}
     .dropdown-item small{color:var(--muted)}
     .dropdown-empty{padding:12px 16px;font-size:13px;color:var(--muted)}
@@ -39,46 +65,49 @@
     .search-wrapper button:disabled{opacity:0.6;cursor:wait}
 
     /* Tags */
-    .tags{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px}
-    .tag{padding:6px 12px;border-radius:8px;background:rgba(255,255,255,0.05);font-size:12px;color:var(--muted)}
+    .tags{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px}
+    .tag{padding:8px 12px;border-radius:999px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.07);font-size:12px;color:#cad7df}
 
     /* Cards */
-    .analysis-status{margin:0 0 16px;padding:12px 14px;border:1px solid rgba(139,92,246,0.2);border-radius:12px;background:rgba(139,92,246,0.08);color:#ddd6fe;font-size:13px}
+    .analysis-status{margin:0 0 16px;padding:14px 16px;border:1px solid rgba(77,208,225,0.18);border-radius:18px;background:linear-gradient(180deg,rgba(77,208,225,0.08),rgba(77,208,225,0.04));color:#d8f6fb;font-size:13px;line-height:1.5}
     .cards{display:block;margin-bottom:24px}
-    .card{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:20px;position:relative;max-width:980px;margin:0 auto}
+    .card{background:linear-gradient(180deg,rgba(16,32,42,0.94),rgba(9,20,28,0.98));border:1px solid rgba(148,163,184,0.15);border-radius:26px;padding:24px;position:relative;max-width:980px;margin:0 auto;box-shadow:var(--shadow)}
     .card-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
     .card-header-left{flex:1}
-    .city-name{font-size:18px;font-weight:700}
-    .city-country{font-size:12px;color:var(--muted)}
+    .city-name{font-size:22px;font-weight:700;line-height:1.2}
+    .city-country{font-size:12px;color:var(--muted);margin-top:4px}
     .card-btns{display:flex;gap:6px;align-items:center}
     .btn-fav{background:none;border:1px solid var(--border);color:var(--muted);padding:4px 8px;border-radius:6px;cursor:pointer;font-size:14px}
     .btn-fav:hover{border-color:var(--yellow);color:var(--yellow)}
     .btn-fav.is-fav{color:var(--yellow);border-color:var(--yellow)}
-    .btn-remove{background:none;border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:6px;cursor:pointer;font-size:12px}
+    .btn-remove{background:rgba(255,255,255,0.03);border:1px solid var(--border);color:#dbe7ee;padding:8px 12px;border-radius:12px;cursor:pointer;font-size:12px}
     .btn-remove:hover{border-color:var(--hot);color:var(--hot)}
     .current-temp{font-size:42px;font-weight:800;margin:8px 0}
     .stats{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
-    .stat{padding:6px 10px;border-radius:8px;background:rgba(255,255,255,0.04);font-size:12px}
-    .summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin:14px 0 18px}
-    .summary-item{padding:12px;border-radius:12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.04)}
+    .stat{padding:8px 12px;border-radius:12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.04);font-size:12px}
+    .summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin:18px 0 20px}
+    .summary-item{padding:14px;border-radius:16px;background:linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.02));border:1px solid rgba(255,255,255,0.05)}
     .summary-label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:6px}
     .summary-value{font-size:15px;font-weight:700;color:var(--text)}
-    .contract-hero{margin:14px 0 18px;padding:16px;border-radius:16px;background:linear-gradient(135deg,rgba(139,92,246,0.18),rgba(17,24,39,0.92));border:1px solid rgba(139,92,246,0.25)}
+    .contract-hero{margin:16px 0 18px;padding:20px;border-radius:22px;background:
+      linear-gradient(135deg,rgba(255,138,61,0.20),rgba(18,27,38,0.95) 40%,rgba(77,208,225,0.14));
+      border:1px solid rgba(255,255,255,0.08)}
     .contract-kicker{font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:#ddd6fe;margin-bottom:8px}
-    .contract-question{font-size:22px;font-weight:800;line-height:1.2;margin-bottom:10px}
+    .contract-question{font-size:clamp(24px,3.4vw,34px);font-weight:700;line-height:1.05;margin-bottom:12px;max-width:18ch}
     .contract-meta{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
-    .contract-pill{padding:6px 10px;border-radius:999px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);font-size:12px;color:var(--text)}
+    .contract-pill{padding:7px 11px;border-radius:999px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.10);font-size:12px;color:var(--text)}
     .contract-pill-muted{color:var(--muted)}
     .contract-pill-fallback{background:rgba(59,130,246,0.12);border-color:rgba(59,130,246,0.22);color:#bfdbfe}
     .contract-status-valid{background:rgba(34,197,94,0.14);border-color:rgba(34,197,94,0.28);color:#bbf7d0}
     .contract-status-partial{background:rgba(234,179,8,0.14);border-color:rgba(234,179,8,0.28);color:#fde68a}
     .contract-status-unknown{background:rgba(239,68,68,0.14);border-color:rgba(239,68,68,0.28);color:#fecaca}
     .contract-outcomes{display:flex;gap:8px;flex-wrap:wrap}
-    .contract-outcome{padding:8px 12px;border-radius:10px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);font-size:12px;font-weight:700}
+    .contract-outcome{padding:9px 13px;border-radius:12px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.10);font-size:12px;font-weight:700}
     .contract-outcome-top{background:rgba(139,92,246,0.18);border-color:rgba(139,92,246,0.32);color:#ede9fe}
-    .section-block{margin-top:18px;padding-top:18px;border-top:1px solid rgba(255,255,255,0.05)}
+    .section-block{margin-top:18px;padding:18px;border-radius:18px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04)}
+    .section-block + .section-block{margin-top:14px}
     .panel-title{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:10px}
-    .empty-state{max-width:980px;margin:0 auto;padding:28px;border:1px dashed rgba(255,255,255,0.12);border-radius:18px;background:rgba(255,255,255,0.02);color:var(--muted);text-align:center}
+    .empty-state{max-width:980px;margin:0 auto;padding:34px;border:1px dashed rgba(148,163,184,0.16);border-radius:24px;background:linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.015));color:#c7d5de;text-align:center;line-height:1.7}
 
     /* Insight badges */
     .insights{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
@@ -97,22 +126,22 @@
     .chart-container canvas{width:100%!important;height:100%!important}
 
     /* Polymarket section */
-    .poly-section{margin-top:12px;padding:12px;border-radius:10px;background:rgba(234,179,8,0.05);border:1px solid rgba(234,179,8,0.15)}
-    .poly-title{font-size:13px;font-weight:700;color:var(--yellow);margin-bottom:8px;display:flex;align-items:center;gap:6px}
+    .poly-section{margin-top:4px;padding:16px;border-radius:18px;background:linear-gradient(180deg,rgba(251,191,36,0.06),rgba(255,255,255,0.02));border:1px solid rgba(251,191,36,0.16)}
+    .poly-title{font-size:13px;font-weight:700;color:var(--yellow);margin-bottom:10px;display:flex;align-items:center;gap:6px}
     .poly-section-summary{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 12px}
     .poly-badge{padding:5px 9px;border-radius:999px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.06);font-size:11px;color:var(--muted);font-weight:700}
     .poly-badge-valid{color:#bbf7d0;border-color:rgba(34,197,94,0.24);background:rgba(34,197,94,0.10)}
     .poly-badge-partial{color:#fde68a;border-color:rgba(234,179,8,0.24);background:rgba(234,179,8,0.10)}
     .poly-badge-unknown{color:#fecaca;border-color:rgba(239,68,68,0.24);background:rgba(239,68,68,0.10)}
-    .poly-market{padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.03)}
+    .poly-market{padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.05)}
     .poly-market:last-child{border-bottom:none}
-    .poly-question{font-size:13px;font-weight:600;margin-bottom:6px}
+    .poly-question{font-size:15px;font-weight:700;line-height:1.4;margin-bottom:10px}
     .status-pill{display:inline-block;padding:4px 8px;border-radius:999px;font-size:11px;font-weight:700}
     .status-valid{background:rgba(34,197,94,0.12);color:var(--green)}
     .status-partial{background:rgba(234,179,8,0.12);color:var(--yellow)}
     .status-unknown{background:rgba(239,68,68,0.12);color:var(--hot)}
     .poly-status-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;margin:8px 0 10px}
-    .poly-status-item{padding:8px 10px;border-radius:8px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05)}
+    .poly-status-item{padding:10px 12px;border-radius:12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.05)}
     .poly-status-label{display:block;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:4px}
     .poly-status-value{font-size:12px;font-weight:700}
     .poly-status-notes{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
@@ -125,7 +154,7 @@
     .poly-outcome-no{background:rgba(239,68,68,0.1);color:var(--hot)}
     .poly-outcome-top{background:rgba(139,92,246,0.15);color:var(--accent);border:1px solid rgba(139,92,246,0.3)}
     .poly-meta{font-size:11px;color:var(--muted)}
-    .poly-compare{margin-top:6px;padding:6px 10px;border-radius:6px;background:rgba(255,255,255,0.03);font-size:12px;font-weight:500}
+    .poly-compare{margin-top:8px;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,0.04);font-size:12px;line-height:1.5;font-weight:500}
     .poly-edge{color:var(--green);font-weight:700}
     .poly-none{font-size:12px;color:rgba(156,163,175,0.5);font-style:italic}
 
@@ -162,12 +191,65 @@
     .loading{color:var(--muted);font-size:13px;text-align:center;padding:20px}
 
     /* Footer */
-    footer{text-align:center;color:var(--muted);font-size:12px;padding:16px;border-top:1px solid var(--border);margin-top:8px}
+    footer{text-align:center;color:var(--muted);font-size:12px;line-height:1.7;padding:20px;border-top:1px solid rgba(255,255,255,0.06);margin-top:10px}
     footer a{color:var(--accent);text-decoration:none}
+    @media (max-width: 960px){
+      .page-hero,.search-grid{grid-template-columns:1fr}
+      .hero-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+      h1{max-width:none}
+    }
+    @media (max-width: 720px){
+      .container{padding:18px 14px 28px}
+      .hero-panel,.hero-metrics,.search-panel,.card,.empty-state{border-radius:20px}
+      .hero-panel{padding:22px}
+      .hero-metrics{grid-template-columns:1fr}
+      .search-wrapper{flex-direction:column}
+      .search-wrapper button{width:100%}
+      .dropdown{right:0}
+      .card{padding:18px}
+      .card-header{flex-direction:column;gap:10px}
+      .contract-question{max-width:none}
+      .summary-grid,.poly-status-grid{grid-template-columns:1fr}
+      .section-block{padding:14px}
+    }
   </style>
 </head>
 <body>
 <div class="container">
+  <section class="page-hero">
+    <div class="hero-panel">
+      <div class="eyebrow">Market-first weather read</div>
+      <h1>Polymarket Weather Intelligence</h1>
+      <div class="sub">Abra um contrato de temperatura, veja o suporte meteorologico e entenda rapido se a leitura atual esta pronta, parcial ou insuficiente no baseline.</div>
+      <div class="hero-note">
+        <span class="hero-chip">Contrato primeiro</span>
+        <span class="hero-chip">Modelos + historico</span>
+        <span class="hero-chip">Leitura heuristica com limites explicitos</span>
+      </div>
+    </div>
+    <div class="hero-metrics">
+      <div class="hero-stat">
+        <div class="hero-stat-label">Modo atual</div>
+        <div class="hero-stat-value">MVP</div>
+        <div class="hero-stat-copy">Fluxo unico de analise com foco em um contrato por vez.</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-stat-label">Entrada</div>
+        <div class="hero-stat-value">Market-first</div>
+        <div class="hero-stat-copy">A busca principal abre contratos do Polymarket antes do fallback por cidade.</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-stat-label">Leitura</div>
+        <div class="hero-stat-value">Heuristica</div>
+        <div class="hero-stat-copy">Suporte meteorologico e limites do baseline ficam visiveis no mesmo lugar.</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-stat-label">Proximo foco</div>
+        <div class="hero-stat-value">Confiabilidade</div>
+        <div class="hero-stat-copy">Depois do polish visual, o proximo ciclo volta para interpretacao semantica do contrato.</div>
+      </div>
+    </div>
+  </section>
   <h1>🌡️ Weather Intelligence — Polymarket</h1>
   <div class="sub">Dashboard de análise climática para apostas de temperatura. Dados de múltiplas fontes, sem backend.</div>
 
@@ -179,17 +261,29 @@
     </div>
   </div>
 
-  <div class="search-wrapper">
-    <input type="text" id="marketInput" placeholder="Busque um mercado do Polymarket (cidade ou contrato)" autocomplete="off" />
-    <button id="marketBtn">Analisar mercado</button>
-    <div class="dropdown" id="marketDropdown"></div>
-  </div>
+  <section class="search-grid">
+    <div class="search-panel search-panel-primary">
+      <div class="search-panel-label">Entrada principal</div>
+      <div class="search-panel-title">Escolha um contrato do Polymarket</div>
+      <div class="search-panel-copy">Busque por cidade, data ou trecho do titulo. Esse e o fluxo principal para abrir a analise.</div>
+      <div class="search-wrapper">
+        <input type="text" id="marketInput" placeholder="Busque um mercado do Polymarket (cidade ou contrato)" autocomplete="off" />
+        <button id="marketBtn">Abrir contrato</button>
+        <div class="dropdown" id="marketDropdown"></div>
+      </div>
+    </div>
 
-  <div class="search-wrapper">
+    <div class="search-panel search-panel-secondary">
+      <div class="search-panel-label">Fallback temporario</div>
+      <div class="search-panel-title">Abra por cidade</div>
+      <div class="search-panel-copy">Use a cidade apenas quando quiser explorar o baseline sem selecionar um contrato primeiro.</div>
+      <div class="search-wrapper">
     <input type="text" id="cityInput" placeholder="Digite o nome de uma cidade (ex: London, São Paulo, Tokyo)" autocomplete="off" />
-    <button id="addBtn">Analisar cidade</button>
+    <button id="addBtn">Abrir cidade</button>
     <div class="dropdown" id="dropdown"></div>
-  </div>
+      </div>
+    </div>
+  </section>
 
   <div class="tags">
     <div class="tag">Estações: Heathrow · JFK · Haneda (+ busca)</div>

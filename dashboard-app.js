@@ -1298,7 +1298,32 @@ function bindEvents() {
   DOM.addButton.addEventListener("click", addCity);
 }
 
+function hydrateStaticCopy() {
+  document.title = "Polymarket Weather Intelligence";
+
+  const tags = document.querySelector(".tags");
+  if (tags) {
+    tags.innerHTML = [
+      '<div class="tag">Stations: Heathrow, JFK, Haneda + busca</div>',
+      '<div class="tag">Models: NOAA GFS, ECMWF IFS, UKMO</div>',
+      '<div class="tag">Baseline heuristico com limites explicitos</div>',
+    ].join("");
+  }
+
+  const footer = document.querySelector("footer");
+  if (footer) {
+    footer.innerHTML = [
+      "Data sources:<br>",
+      '<a href="https://open-meteo.com/" target="_blank">Open-Meteo</a> (forecast, historical, geocoding) ·',
+      '<a href="https://open-meteo.com/en/docs/gfs-api" target="_blank">NOAA GFS</a> via Open-Meteo ·',
+      '<a href="https://open-meteo.com/en/docs/ecmwf-api" target="_blank">Copernicus/ECMWF</a> via Open-Meteo<br>',
+      "Current baseline: single-page MVP with heuristic contract reading and explicit limits.",
+    ].join(" ");
+  }
+}
+
 function init() {
+  hydrateStaticCopy();
   bindEvents();
   View.renderEmptyState();
   View.setStatus(DEFAULT_STATUS);
