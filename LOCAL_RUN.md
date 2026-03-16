@@ -66,15 +66,28 @@ Payload de mercado atual no backend:
 - `volume`
 - `liquidity`
 
+Endpoint de listagem para o ciclo market-first:
+
+```text
+/api/polymarket/markets?q=<texto>&city=<cidade>&limit=<n>
+```
+
+Exemplo:
+
+```text
+http://127.0.0.1:8090/api/polymarket/markets?q=london&limit=5
+```
+
 Smoke test manual:
 
 1. Subir `server.py`
 2. Abrir `dashboard.html`
-3. Buscar uma cidade suportada
+3. Buscar e selecionar um mercado do Polymarket na busca principal
 4. Confirmar que a pagina carrega:
    - mercado selecionado
    - modelos e historico
    - limites da leitura
+5. Como fallback temporario, repetir o fluxo usando a busca por cidade
 
 ## Limitacoes conhecidas
 

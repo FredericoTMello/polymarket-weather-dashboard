@@ -23,19 +23,28 @@ const CONFIG = {
 
 const State = {
   activeCity: null,
+  activeMarket: null,
   selectedCity: null,
+  selectedMarket: null,
   searchTimeout: null,
+  marketSearchTimeout: null,
   chart: null,
   errorCache: {},
 };
 
 const DOM = {
+  marketInput: document.getElementById("marketInput"),
+  marketDropdown: document.getElementById("marketDropdown"),
+  marketButton: document.getElementById("marketBtn"),
   input: document.getElementById("cityInput"),
   dropdown: document.getElementById("dropdown"),
   addButton: document.getElementById("addBtn"),
   cards: document.getElementById("cards"),
   status: document.getElementById("analysisStatus"),
 };
+
+const DEFAULT_STATUS =
+  "Selecione um mercado do Polymarket para abrir a analise principal. A busca por cidade continua disponivel como fallback temporario.";
 
 const Helpers = {
   escapeHtml(value) {
@@ -262,6 +271,15 @@ const WeatherProvider = {
 };
 
 const MarketProvider = {
+  async listMarkets({ query = "", city = "", limit = 8 } = {}) {
+    const params = new URLSearchParams();
+    if (query) params.set("q", query);
+    if (city) params.set("city", city);
+    if (limit) params.set("limit", String(limit));
+    const response = await fetch(`/api/polymarket/markets?${params.toString()}`);
+    return response.json();
+  },
+
   async fetchByCity(city) {
     const response = await fetch(`/api/polymarket/city?city=${encodeURIComponent(city.name)}`);
     return response.json();
@@ -531,8 +549,22 @@ const AnalysisEngine = {
 
 // Keep the existing rendering pipeline, but override market rendering so the UI
 // separates contract interpretation from forecast support.
-AnalysisEngine.buildMarketAnalysis = function buildMarketAnalysis(events, modelData, errorStats, cityName) {
-  if (!events.length) {
+AnalysisEngine.buildMarketAnalysis = function buildMarketAnalysis(events, modelData, errorStats, cityName, selectedMarket = null) {
+  const selectedQuestion = String(selectedMarket?.question || "").trim().toLowerCase();
+  const selectedDate = String(selectedMarket?.date || "").trim().toLowerCase();
+  const selectedCityKey = String(selectedMarket?.city_key || "").trim().toLowerCase();
+  const scopedEvents = selectedMarket
+    ? events.filter((event) => {
+        const eventQuestion = String(event.question || "").trim().toLowerCase();
+        const eventDate = String(event.date || "").trim().toLowerCase();
+        const eventCityKey = String(event.city_key || "").trim().toLowerCase();
+        if (selectedQuestion && eventQuestion && eventQuestion === selectedQuestion) return true;
+        return Boolean(selectedCityKey && selectedDate && eventCityKey === selectedCityKey && eventDate === selectedDate);
+      })
+    : events;
+  const marketEvents = scopedEvents.length ? scopedEvents : events;
+
+  if (!marketEvents.length) {
     return {
       marketSummary: "Nenhum mercado aberto encontrado",
       confidenceSummary: "Sem suporte meteorologico para leitura de mercado",
@@ -562,10 +594,13 @@ AnalysisEngine.buildMarketAnalysis = function buildMarketAnalysis(events, modelD
   let forecastReadyCount = 0;
   let forecastLimitedCount = 0;
 
-  const uniqueDates = [...new Set(events.map((event) => event.date).filter(Boolean))].sort();
+  const uniqueDates = [...new Set(marketEvents.map((event) => event.date).filter(Boolean))].sort();
   let html = '<div class="poly-section">';
   html += '<div class="poly-title">Polymarket - Leitura heuristica de mercado</div>';
   html += '<div class="poly-meta" style="margin-bottom:10px">Leitura experimental baseada em modelos, data inferida e timezone automatico. Nao equivale a validacao completa do SPEC.</div>';
+  if (selectedMarket) {
+    html += `<div class="poly-meta" style="margin-bottom:8px">Contrato selecionado: ${Helpers.escapeHtml(selectedMarket.question || "mercado sem titulo")}.</div>`;
+  }
   if (errorStats) {
     html += `<div style="font-size:11px;color:var(--muted);margin-bottom:8px;padding:4px 8px;background:rgba(255,255,255,0.02);border-radius:6px">Erro do modelo (30d): bias=${errorStats.bias > 0 ? "+" : ""}${errorStats.bias.toFixed(2)}°C · σ=${errorStats.sigma.toFixed(2)}°C · n=${errorStats.n}</div>`;
   }
@@ -578,7 +613,7 @@ AnalysisEngine.buildMarketAnalysis = function buildMarketAnalysis(events, modelD
 
   let confidenceSummary = "Suporte meteorologico ainda nao consolidado";
 
-  for (const event of events) {
+  for (const event of marketEvents) {
     const parseStatus = event.parse_status || "unknown";
     const parseNotes = Array.isArray(event.parse_notes) ? event.parse_notes : [];
     const ruleConfidence = event.rule_confidence || "LOW";
@@ -732,7 +767,9 @@ AnalysisEngine.buildMarketAnalysis = function buildMarketAnalysis(events, modelD
   }
 
   return {
-    marketSummary: `${events.length} contrato(s) · ${validCount} validos · ${partialCount} parciais · ${unknownCount} insuficientes`,
+    marketSummary: selectedMarket
+      ? `${validCount ? "Contrato selecionado carregado" : "Contrato selecionado sem validacao"} · ${validCount} valido(s) · ${partialCount} parcial(is) · ${unknownCount} insuficiente(s)`
+      : `${marketEvents.length} contrato(s) · ${validCount} validos · ${partialCount} parciais · ${unknownCount} insuficientes`,
     confidenceSummary,
     html,
   };
@@ -751,7 +788,7 @@ const View = {
   },
 
   renderEmptyState() {
-    DOM.cards.innerHTML = '<div class="empty-state">Nenhuma analise ativa. Escolha uma cidade para abrir um unico painel com previsoes, historico e mercados do Polymarket.</div>';
+    DOM.cards.innerHTML = '<div class="empty-state">Nenhuma analise ativa. Escolha um mercado do Polymarket para abrir a leitura principal. A busca por cidade continua disponivel como fallback temporario.</div>';
   },
 
   renderAnalysisCard(city) {
@@ -802,8 +839,13 @@ const View = {
         State.chart = null;
       }
       State.activeCity = null;
+      State.activeMarket = null;
+      State.selectedMarket = null;
+      State.selectedCity = null;
+      DOM.marketInput.value = "";
+      DOM.input.value = "";
       this.renderEmptyState();
-      this.setStatus("Selecione outra cidade para continuar a analise.");
+      this.setStatus(DEFAULT_STATUS);
     });
   },
 
@@ -857,8 +899,13 @@ AnalysisEngine.probInRange = probInRange;
 View.normalizeAnalyticalLabel = normalizeAnalyticalLabel;
 
 async function loadCity(city) {
+  const selectedMarket = State.activeMarket;
   View.renderAnalysisCard(city);
-  View.setStatus(`Analisando ${city.name}. A pagina agora mantem uma unica leitura ativa por vez.`);
+  if (selectedMarket) {
+    View.setStatus(`Analisando o contrato ${selectedMarket.question || "selecionado"} em ${city.name}. A busca por cidade continua disponivel como fallback.`);
+  } else {
+    View.setStatus(`Analisando ${city.name} via fallback por cidade. Selecione um mercado do Polymarket para usar a entrada principal.`);
+  }
 
   try {
     const weatherBundle = await WeatherProvider.fetchBundle(city);
@@ -867,7 +914,7 @@ async function loadCity(city) {
     View.renderWeather(city, weatherAnalysis);
 
     const [markets, errorStats] = await Promise.all([MarketProvider.fetchByCity(city), WeatherProvider.fetchModelError(city)]);
-    const marketAnalysis = AnalysisEngine.buildMarketAnalysis(markets, weatherAnalysis.modelData, errorStats, city.name);
+    const marketAnalysis = AnalysisEngine.buildMarketAnalysis(markets, weatherAnalysis.modelData, errorStats, city.name, selectedMarket);
     View.renderMarket(city, marketAnalysis);
   } catch (error) {
     console.error("Error loading city data:", error);
@@ -884,9 +931,76 @@ async function loadCity(city) {
 function setActiveCity(baseCity) {
   const city = { ...baseCity, id: `c${Date.now()}` };
   State.activeCity = city;
+  State.activeMarket = null;
   State.selectedCity = null;
+  State.selectedMarket = null;
+  DOM.marketInput.value = "";
   DOM.input.value = "";
   loadCity(city);
+}
+
+function formatMarketLocation(market) {
+  const pieces = [market.city, market.date].filter(Boolean);
+  return pieces.join(" · ") || "Contrato sem cidade/data canônicas";
+}
+
+function getCityFromStations(cityKey) {
+  if (!cityKey) return null;
+  const station = CONFIG.marketStations.find((item) => item.id === cityKey);
+  return station ? { ...station } : null;
+}
+
+async function resolveCityForMarket(market) {
+  const stationMatch = getCityFromStations(market.city_key);
+  if (stationMatch) return stationMatch;
+
+  const query = market.city || market.city_key || "";
+  if (!query) return null;
+
+  const results = await WeatherProvider.searchCities(query);
+  const first = results[0];
+  if (!first) return null;
+
+  return {
+    id: market.city_key || `market-${Date.now()}`,
+    name: first.name,
+    country: first.country || "",
+    region: first.admin1 || "",
+    lat: first.latitude,
+    lon: first.longitude,
+  };
+}
+
+function renderMarketSuggestions(markets) {
+  if (!markets.length) {
+    DOM.marketDropdown.style.display = "none";
+    return;
+  }
+
+  DOM.marketDropdown.innerHTML = "";
+  markets.forEach((market) => {
+    const item = document.createElement("div");
+    item.className = "dropdown-item";
+    const location = formatMarketLocation(market);
+    item.innerHTML = `<strong>${Helpers.escapeHtml(market.question || "Mercado sem titulo")}</strong> <small>${Helpers.escapeHtml(location)}</small>`;
+    item.addEventListener("click", () => {
+      State.selectedMarket = market;
+      DOM.marketInput.value = market.question || market.city || "";
+      DOM.marketDropdown.style.display = "none";
+    });
+    DOM.marketDropdown.appendChild(item);
+  });
+  DOM.marketDropdown.style.display = "block";
+}
+
+async function fetchMarkets(query = "") {
+  try {
+    const results = await MarketProvider.listMarkets({ query, limit: 8 });
+    renderMarketSuggestions(Array.isArray(results) ? results : []);
+  } catch (error) {
+    console.error("Market search error:", error);
+    DOM.marketDropdown.style.display = "none";
+  }
 }
 
 async function fetchCities(query) {
@@ -921,12 +1035,31 @@ async function fetchCities(query) {
   }
 }
 
+async function setActiveMarket(market) {
+  const city = await resolveCityForMarket(market);
+  if (!city) {
+    View.setStatus("Nao foi possivel resolver a cidade base do contrato selecionado.");
+    return;
+  }
+
+  const resolvedCity = { ...city, id: `c${Date.now()}` };
+  State.activeCity = resolvedCity;
+  State.activeMarket = market;
+  State.selectedMarket = null;
+  State.selectedCity = null;
+  DOM.marketInput.value = market.question || "";
+  DOM.input.value = "";
+  DOM.marketDropdown.style.display = "none";
+  DOM.dropdown.style.display = "none";
+  loadCity(resolvedCity);
+}
+
 function addCity() {
   if (!State.selectedCity) {
     alert("Selecione uma cidade da lista de sugestoes.");
     return;
   }
-  if (State.activeCity && State.activeCity.name === State.selectedCity.name && State.activeCity.lat === State.selectedCity.lat) {
+  if (State.activeCity && !State.activeMarket && State.activeCity.name === State.selectedCity.name && State.activeCity.lat === State.selectedCity.lat) {
     View.setStatus(`A analise atual ja esta focada em ${State.selectedCity.name}.`);
     State.selectedCity = null;
     DOM.input.value = "";
@@ -935,9 +1068,51 @@ function addCity() {
   setActiveCity(State.selectedCity);
 }
 
+async function addMarket() {
+  if (!State.selectedMarket) {
+    alert("Selecione um mercado da lista de sugestoes.");
+    return;
+  }
+
+  const nextMarket = State.selectedMarket;
+  if (State.activeMarket && State.activeMarket.question === nextMarket.question) {
+    View.setStatus(`O contrato ${nextMarket.question} ja esta em analise.`);
+    State.selectedMarket = null;
+    DOM.marketInput.value = "";
+    return;
+  }
+
+  await setActiveMarket(nextMarket);
+}
+
 function bindEvents() {
+  DOM.marketInput.addEventListener("input", () => {
+    const query = DOM.marketInput.value.trim();
+    State.selectedMarket = null;
+    if (State.marketSearchTimeout) clearTimeout(State.marketSearchTimeout);
+    if (query.length < 2) {
+      DOM.marketDropdown.style.display = "none";
+      return;
+    }
+    State.marketSearchTimeout = setTimeout(() => fetchMarkets(query), 250);
+  });
+
+  DOM.marketInput.addEventListener("focus", () => {
+    const query = DOM.marketInput.value.trim();
+    if (query.length >= 2) {
+      fetchMarkets(query);
+      return;
+    }
+    fetchMarkets("");
+  });
+
+  DOM.marketInput.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") DOM.marketDropdown.style.display = "none";
+  });
+
   DOM.input.addEventListener("input", () => {
     const query = DOM.input.value.trim();
+    State.selectedCity = null;
     if (State.searchTimeout) clearTimeout(State.searchTimeout);
     if (query.length < 2) {
       DOM.dropdown.style.display = "none";
@@ -951,16 +1126,25 @@ function bindEvents() {
   });
 
   document.addEventListener("click", (event) => {
-    if (!event.target.closest(".search-wrapper")) DOM.dropdown.style.display = "none";
+    if (!event.target.closest(".search-wrapper")) {
+      DOM.dropdown.style.display = "none";
+      DOM.marketDropdown.style.display = "none";
+    }
   });
 
+  DOM.marketButton.addEventListener("click", () => {
+    addMarket().catch((error) => {
+      console.error("Error activating market:", error);
+      View.setStatus("Falha ao carregar o mercado selecionado.");
+    });
+  });
   DOM.addButton.addEventListener("click", addCity);
 }
 
 function init() {
   bindEvents();
   View.renderEmptyState();
-  setActiveCity(CONFIG.marketStations[0]);
+  View.setStatus(DEFAULT_STATUS);
 }
 
 init();

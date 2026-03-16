@@ -243,12 +243,50 @@ def match_city_events(events, query):
     return [event for event in events if query_folded in fold_text(event.get("city", ""))]
 
 
+def filter_market_events(events, query="", city_query="", limit=None):
+    """Filter market events for market-first entry without changing the payload."""
+    filtered = list(events)
+
+    if city_query:
+        filtered = match_city_events(filtered, city_query)
+
+    if query:
+        query_folded = fold_text(query)
+        filtered = [
+            event
+            for event in filtered
+            if query_folded in fold_text(event.get("question", ""))
+            or query_folded in fold_text(event.get("city", ""))
+            or query_folded in fold_text(event.get("date", ""))
+            or query_folded in fold_text(event.get("city_key", ""))
+        ]
+
+    if limit is not None:
+        try:
+            limit_value = max(0, int(limit))
+        except (TypeError, ValueError):
+            limit_value = None
+        if limit_value is not None:
+            filtered = filtered[:limit_value]
+
+    return filtered
+
+
 class DashboardHandler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=DASHBOARD_DIR, **kwargs)
 
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
+
+        if parsed.path == "/api/polymarket/markets":
+            params = urllib.parse.parse_qs(parsed.query)
+            query = params.get("q", [""])[0].strip()
+            city_q = params.get("city", [""])[0].strip()
+            limit = params.get("limit", [""])[0].strip() or None
+            events = fetch_polymarket_weather()
+            self.send_json(filter_market_events(events, query=query, city_query=city_q, limit=limit))
+            return
 
         if parsed.path == "/api/polymarket":
             self.send_json(fetch_polymarket_weather())

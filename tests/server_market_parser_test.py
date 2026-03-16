@@ -67,6 +67,49 @@ class MarketParserTests(unittest.TestCase):
         self.assertEqual(parsed["city"], "London")
         self.assertEqual(parsed["date_label"], "March 16")
 
+    def test_filter_market_events_filters_by_text_query(self):
+        events = [
+            server.interpret_market_event("Highest temperature in London on March 16?"),
+            server.interpret_market_event("Highest temperature in Tokyo on March 17?"),
+        ]
+
+        filtered = server.filter_market_events(events, query="tokyo")
+
+        self.assertEqual(len(filtered), 1)
+        self.assertEqual(filtered[0]["city_key"], "tokyo")
+
+    def test_filter_market_events_filters_by_city_alias(self):
+        events = [
+            server.interpret_market_event("Highest temperature in London on March 16?"),
+            server.interpret_market_event("Highest temperature in Tokyo on March 17?"),
+        ]
+
+        filtered = server.filter_market_events(events, city_query="londres")
+
+        self.assertEqual(len(filtered), 1)
+        self.assertEqual(filtered[0]["city_key"], "london")
+
+    def test_filter_market_events_applies_limit(self):
+        events = [
+            server.interpret_market_event("Highest temperature in London on March 16?"),
+            server.interpret_market_event("Highest temperature in Tokyo on March 17?"),
+            server.interpret_market_event("Highest temperature in New York on March 18?"),
+        ]
+
+        filtered = server.filter_market_events(events, limit="2")
+
+        self.assertEqual(len(filtered), 2)
+
+    def test_filter_market_events_ignores_invalid_limit(self):
+        events = [
+            server.interpret_market_event("Highest temperature in London on March 16?"),
+            server.interpret_market_event("Highest temperature in Tokyo on March 17?"),
+        ]
+
+        filtered = server.filter_market_events(events, limit="abc")
+
+        self.assertEqual(len(filtered), 2)
+
 
 if __name__ == "__main__":
     unittest.main()

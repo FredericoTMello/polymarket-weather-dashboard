@@ -11,7 +11,9 @@ O ponto ainda vago nao e mais "como rodar" ou "como interpretar minimamente o me
 
 ## Status
 
-Proximo ciclo ativo.
+Fase 1 concluida.
+Fase 2 concluida.
+Fase 3 e a proxima fase ativa.
 
 ## Goal
 
@@ -111,6 +113,8 @@ Isso reduz risco e evita reescrita ampla.
 
 ### Fase 1 - Backend Para Lista De Mercados
 
+Status: concluida
+
 Objetivo:
 expor mercados do Polymarket como lista utilizavel pelo frontend.
 
@@ -127,6 +131,8 @@ Definicao de pronto:
 - o payload continua pequeno e consistente
 
 ### Fase 2 - Selecionar Um Mercado No Frontend
+
+Status: concluida
 
 Objetivo:
 criar a menor entrada market-first sem quebrar a UX atual.
@@ -151,6 +157,8 @@ Definicao de pronto:
 - a tela continua unica e compreensivel
 
 ### Fase 3 - Reorganizar A Tela Em Torno Do Contrato
+
+Status: proxima
 
 Objetivo:
 fazer a tela parecer produto de mercado, nao produto de cidade.

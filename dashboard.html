@@ -155,6 +155,12 @@
   </div>
 
   <div class="search-wrapper">
+    <input type="text" id="marketInput" placeholder="Busque um mercado do Polymarket (cidade ou contrato)" autocomplete="off" />
+    <button id="marketBtn">Analisar mercado</button>
+    <div class="dropdown" id="marketDropdown"></div>
+  </div>
+
+  <div class="search-wrapper">
     <input type="text" id="cityInput" placeholder="Digite o nome de uma cidade (ex: London, São Paulo, Tokyo)" autocomplete="off" />
     <button id="addBtn">Analisar cidade</button>
     <div class="dropdown" id="dropdown"></div>
@@ -166,7 +172,7 @@
     <div class="tag">σ floor: 1.5°C (conservador)</div>
   </div>
 
-  <div id="analysisStatus" class="analysis-status">Selecione uma cidade para manter uma leitura ativa de mercado, modelos e historico em uma unica tela.</div>
+  <div id="analysisStatus" class="analysis-status">Selecione um mercado do Polymarket para abrir a analise principal. A busca por cidade continua disponivel como fallback temporario.</div>
   <div id="cards" class="cards"></div>
 
   <footer>
