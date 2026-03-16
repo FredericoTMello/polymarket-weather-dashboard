@@ -47,6 +47,25 @@ Testes do nucleo analitico:
 node --test tests/analytics-core.test.mjs
 ```
 
+Testes do parser de mercado no backend:
+
+```powershell
+python -m unittest discover -s tests -p "*_test.py"
+```
+
+Payload de mercado atual no backend:
+
+- `question`
+- `city`
+- `city_key`
+- `date`
+- `parse_status`
+- `parse_notes`
+- `rule_confidence`
+- `outcomes`
+- `volume`
+- `liquidity`
+
 Smoke test manual:
 
 1. Subir `server.py`

@@ -529,6 +529,215 @@ const AnalysisEngine = {
   },
 };
 
+// Keep the existing rendering pipeline, but override market rendering so the UI
+// separates contract interpretation from forecast support.
+AnalysisEngine.buildMarketAnalysis = function buildMarketAnalysis(events, modelData, errorStats, cityName) {
+  if (!events.length) {
+    return {
+      marketSummary: "Nenhum mercado aberto encontrado",
+      confidenceSummary: "Sem suporte meteorologico para leitura de mercado",
+      html: `<div class="poly-section"><div class="poly-title">Polymarket</div><div class="poly-none">Nenhum mercado de temperatura aberto para ${Helpers.escapeHtml(cityName)}</div></div>`,
+    };
+  }
+
+  const parseNoteLabels = {
+    city_matched_by_alias: { label: "Cidade reconhecida por alias", css: "poly-note" },
+    city_not_canonical: { label: "Cidade fora do baseline atual", css: "poly-note-warn" },
+    city_not_extracted: { label: "Cidade nao extraida do titulo", css: "poly-note-risk" },
+    date_inferred_from_title_only: { label: "Data inferida do titulo", css: "poly-note" },
+    date_not_supported_by_current_baseline: { label: "Formato de data fora do baseline", css: "poly-note-warn" },
+    date_not_extracted: { label: "Data nao extraida do titulo", css: "poly-note-risk" },
+  };
+  const parseStatusLabels = {
+    valid: "Contrato valido no baseline atual",
+    partial: "Contrato parcial no baseline atual",
+    unknown: "Contrato insuficiente no baseline atual",
+  };
+  const confidenceBadge = {
+    HIGH: "confidence-high",
+    MEDIUM: "confidence-medium",
+    LOW: "confidence-low",
+  };
+  const interpretationCounts = { valid: 0, partial: 0, unknown: 0 };
+  let forecastReadyCount = 0;
+  let forecastLimitedCount = 0;
+
+  const uniqueDates = [...new Set(events.map((event) => event.date).filter(Boolean))].sort();
+  let html = '<div class="poly-section">';
+  html += '<div class="poly-title">Polymarket - Leitura heuristica de mercado</div>';
+  html += '<div class="poly-meta" style="margin-bottom:10px">Leitura experimental baseada em modelos, data inferida e timezone automatico. Nao equivale a validacao completa do SPEC.</div>';
+  if (errorStats) {
+    html += `<div style="font-size:11px;color:var(--muted);margin-bottom:8px;padding:4px 8px;background:rgba(255,255,255,0.02);border-radius:6px">Erro do modelo (30d): bias=${errorStats.bias > 0 ? "+" : ""}${errorStats.bias.toFixed(2)}°C · σ=${errorStats.sigma.toFixed(2)}°C · n=${errorStats.n}</div>`;
+  }
+  if (uniqueDates.length > 1) {
+    html += '<div style="margin-bottom:10px">';
+    html += '<label style="font-size:12px;color:var(--muted);margin-right:8px">Data:</label>';
+    html += `<select class="date-filter" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:12px"><option value="">Todas</option>${uniqueDates.map((date) => `<option value="${Helpers.escapeHtml(date)}">${Helpers.escapeHtml(date)}</option>`).join("")}</select>`;
+    html += "</div>";
+  }
+
+  let confidenceSummary = "Suporte meteorologico ainda nao consolidado";
+
+  for (const event of events) {
+    const parseStatus = event.parse_status || "unknown";
+    const parseNotes = Array.isArray(event.parse_notes) ? event.parse_notes : [];
+    const ruleConfidence = event.rule_confidence || "LOW";
+    interpretationCounts[parseStatus] = (interpretationCounts[parseStatus] || 0) + 1;
+
+    const outcomes = event.outcomes || [];
+    const allZero = outcomes.every((outcome) => outcome.probability < 0.01);
+    const oneHundred = outcomes.some((outcome) => outcome.probability > 0.99);
+    if (allZero || oneHundred) continue;
+
+    html += `<div class="poly-market" data-date="${Helpers.escapeHtml(event.date || "")}">`;
+    html += `<div class="poly-question">${Helpers.escapeHtml(event.question || "")}</div>`;
+
+    let avgPredC = null;
+    let modelSpread = null;
+    let targetDate = null;
+    let forecastSupportLabel = "Sem suporte meteorologico suficiente para este contrato";
+    let forecastSupportClass = "support-none";
+    const resolvedDate = Parsing.resolveTargetDate(event.date);
+    if (resolvedDate) {
+      targetDate = resolvedDate.targetDate;
+      if (resolvedDate.targetDateObj > new Date()) {
+        const index = (modelData.dates || []).indexOf(targetDate);
+        if (index >= 0) {
+          const preds = CONFIG.forecastModels
+            .map((model) => modelData.models?.[model]?.max?.[index])
+            .filter((value) => value != null);
+          if (preds.length) {
+            avgPredC = preds.reduce((sum, value) => sum + value, 0) / preds.length;
+            modelSpread = Math.max(...preds) - Math.min(...preds);
+            if (errorStats) {
+              forecastSupportLabel = "Forecast e erro historico cobrem a data inferida";
+              forecastSupportClass = "support-ready";
+              forecastReadyCount += 1;
+            } else {
+              forecastSupportLabel = "Forecast encontrado, mas sem erro historico para esta cidade";
+              forecastSupportClass = "support-limited";
+              forecastLimitedCount += 1;
+            }
+          } else {
+            forecastSupportLabel = "Data inferida sem valores de forecast suficientes";
+            forecastSupportClass = "support-limited";
+            forecastLimitedCount += 1;
+          }
+        } else {
+          forecastSupportLabel = "Data inferida fora do horizonte atual de forecast";
+          forecastSupportClass = "support-limited";
+          forecastLimitedCount += 1;
+        }
+      } else {
+        forecastSupportLabel = "Data inferida ja ficou fora do baseline atual";
+      }
+    } else {
+      forecastSupportLabel = "Sem data inferida util para cruzar forecast";
+    }
+
+    html += '<div class="poly-status-grid">';
+    html += `<div class="poly-status-item"><span class="poly-status-label">Interpretacao do contrato</span><span class="poly-status-value">${Helpers.escapeHtml(parseStatusLabels[parseStatus] || parseStatusLabels.unknown)} <span class="confidence-badge ${confidenceBadge[ruleConfidence] || confidenceBadge.LOW}">${Helpers.escapeHtml(ruleConfidence)}</span></span></div>`;
+    html += `<div class="poly-status-item"><span class="poly-status-label">Suporte de forecast</span><span class="poly-status-value ${forecastSupportClass}">${Helpers.escapeHtml(forecastSupportLabel)}</span></div>`;
+    html += "</div>";
+
+    if (parseStatus !== "valid" && parseNotes.length) {
+      html += '<div class="poly-status-notes">';
+      parseNotes.forEach((note) => {
+        const meta = parseNoteLabels[note] || { label: note, css: "poly-note" };
+        html += `<span class="${meta.css}">${Helpers.escapeHtml(meta.label)}</span>`;
+      });
+      html += "</div>";
+    }
+
+    if (parseStatus === "valid" && avgPredC != null && errorStats && targetDate) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const horizonDays = Math.max(1, Math.ceil((new Date(targetDate) - today) / 86400000));
+      const mu = avgPredC - errorStats.bias;
+      const sigmaHorizonPenalty = errorStats.baseSigma * horizonDays * CONFIG.horizonPenaltyK;
+      const sigmaFinal = Math.sqrt(errorStats.sigma ** 2 + (modelSpread || 0) ** 2 + sigmaHorizonPenalty ** 2);
+
+      let bestEdge = -999;
+      let bestOutcome = "";
+      html += '<table class="edge-table"><tr><th>Temp</th><th>Prob Real</th><th>Prob Mercado</th><th>Edge</th><th>Sinal</th></tr>';
+      for (const outcome of outcomes) {
+        const parsed = Parsing.parseRange(outcome.label);
+        if (!parsed) continue;
+        const probReal = this.probInRange(mu, sigmaFinal, parsed.lo, parsed.hi);
+        const probMarket = outcome.probability;
+        const edge = probReal - probMarket;
+        let signal = "skip";
+        let rowClass = "";
+        if (edge >= 0.1) {
+          signal = "EDGE";
+          rowClass = "edge-row-green";
+        } else if (edge >= 0.05) {
+          signal = "fraco";
+          rowClass = "edge-row-yellow";
+        } else if (edge <= -0.1) {
+          signal = "contra";
+          rowClass = "edge-row-red";
+        }
+
+        if (edge > bestEdge) {
+          bestEdge = edge;
+          bestOutcome = Helpers.convertRangeToC(outcome.label);
+        }
+
+        html += `<tr class="${rowClass}"><td>${Helpers.escapeHtml(Helpers.convertRangeToC(outcome.label))}</td><td>${(probReal * 100).toFixed(0)}%</td><td>${(probMarket * 100).toFixed(0)}%</td><td>${edge > 0 ? "+" : ""}${(edge * 100).toFixed(0)}%</td><td>${signal}</td></tr>`;
+      }
+      html += "</table>";
+
+      if (bestEdge >= 0.1 && ruleConfidence === "HIGH") {
+        confidenceSummary = "Forecast cobre ao menos um contrato validado";
+        html += `<div class="edge-verdict"><span class="verdict-go">Sinal heuristico: <strong>${Helpers.escapeHtml(bestOutcome)}</strong> com desvio estimado de +${(bestEdge * 100).toFixed(0)}%</span></div>`;
+      } else if (bestEdge >= 0.05) {
+        confidenceSummary = "Forecast pronto, mas com sinal heuristico fraco";
+        html += `<div class="edge-verdict"><span class="verdict-weak">Sinal heuristico fraco (+${(bestEdge * 100).toFixed(0)}%)</span></div>`;
+      } else {
+        confidenceSummary = "Forecast pronto sem desvio heuristico relevante";
+        html += '<div class="edge-verdict"><span class="verdict-skip">Sem desvio heuristico relevante na leitura atual</span></div>';
+      }
+    } else {
+      html += '<div class="poly-outcomes">';
+      outcomes.slice(0, 6).forEach((outcome, index) => {
+        const cssClass = index === 0 ? "poly-outcome-top" : "poly-outcome-yes";
+        html += `<div class="poly-outcome ${cssClass}">${Helpers.escapeHtml(Helpers.convertRangeToC(outcome.label))}: ${(outcome.probability * 100).toFixed(0)}%</div>`;
+      });
+      html += "</div>";
+      if (parseStatus !== "valid") {
+        html += '<div class="poly-compare">Contrato ainda parcial ou insuficiente no baseline atual. Mantendo leitura descritiva do mercado.</div>';
+      } else if (avgPredC != null) {
+        html += `<div class="poly-compare">Modelos preveem ${avgPredC.toFixed(1)}°C - suporte meteorologico ainda incompleto para leitura heuristica.</div>`;
+      } else {
+        html += '<div class="poly-compare">Sem suporte meteorologico suficiente para estimar este contrato no baseline atual.</div>';
+      }
+    }
+
+    html += "</div>";
+  }
+
+  html += "</div>";
+  const validCount = interpretationCounts.valid || 0;
+  const partialCount = interpretationCounts.partial || 0;
+  const unknownCount = interpretationCounts.unknown || 0;
+  if (!validCount) {
+    confidenceSummary = "Sem contrato validado no baseline atual";
+  } else if (forecastReadyCount > 0) {
+    confidenceSummary = "Forecast cobre ao menos um contrato validado";
+  } else if (forecastLimitedCount > 0) {
+    confidenceSummary = "Contratos validados, mas com suporte meteorologico parcial";
+  } else {
+    confidenceSummary = "Contratos presentes sem suporte meteorologico suficiente";
+  }
+
+  return {
+    marketSummary: `${events.length} contrato(s) · ${validCount} validos · ${partialCount} parciais · ${unknownCount} insuficientes`,
+    confidenceSummary,
+    html,
+  };
+};
+
 const View = {
   setStatus(message) {
     if (DOM.status) DOM.status.textContent = message;

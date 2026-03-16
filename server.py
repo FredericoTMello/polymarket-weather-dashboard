@@ -55,6 +55,8 @@ FOLDED_CITY_ALIASES = {
     for city_key, aliases in CITY_ALIASES.items()
 }
 
+MONTH_DAY_PATTERN = re.compile(r"^[A-Za-z]+\s+\d{1,2}$")
+
 
 def parse_event_title(title):
     """Extract canonical question, city, and date fields from a market title."""
@@ -86,6 +88,62 @@ def normalize_city_query(query):
                 return city_key
 
     return folded_query
+
+
+def classify_event_interpretation(question, city, city_key, date_label):
+    """Return explicit parsing status and confidence for the current baseline."""
+    parse_notes = []
+    has_city = bool(city)
+    has_date = bool(date_label)
+    canonical_city = city_key in CITY_ALIASES if city_key else False
+    supported_date = bool(MONTH_DAY_PATTERN.match(date_label or ""))
+
+    if has_city:
+        if canonical_city:
+            parse_notes.append("city_matched_by_alias")
+        else:
+            parse_notes.append("city_not_canonical")
+    else:
+        parse_notes.append("city_not_extracted")
+
+    if has_date:
+        parse_notes.append("date_inferred_from_title_only")
+        if not supported_date:
+            parse_notes.append("date_not_supported_by_current_baseline")
+    else:
+        parse_notes.append("date_not_extracted")
+
+    if question and has_city and has_date and canonical_city and supported_date:
+        parse_status = "valid"
+        rule_confidence = "HIGH"
+    elif question and (has_city or has_date):
+        parse_status = "partial"
+        rule_confidence = "MEDIUM"
+    else:
+        parse_status = "unknown"
+        rule_confidence = "LOW"
+
+    return {
+        "parse_status": parse_status,
+        "parse_notes": parse_notes,
+        "rule_confidence": rule_confidence,
+    }
+
+
+def interpret_market_event(title):
+    """Build the baseline market interpretation returned by the backend."""
+    meta = parse_event_title(title)
+    city = meta["city"]
+    city_key = normalize_city_query(city)
+    interpretation = classify_event_interpretation(meta["question"], city, city_key, meta["date_label"])
+
+    return {
+        "question": meta["question"],
+        "city": city,
+        "city_key": city_key,
+        "date": meta["date_label"],
+        **interpretation,
+    }
 
 
 def fetch_polymarket_weather():
@@ -128,6 +186,9 @@ def fetch_polymarket_weather():
     #   city: str,
     #   city_key: str,
     #   date: str,
+    #   parse_status: "valid" | "partial" | "unknown",
+    #   parse_notes: [str],
+    #   rule_confidence: "HIGH" | "MEDIUM" | "LOW",
     #   outcomes: [{ label: str, probability: float }],
     #   volume: str,
     #   liquidity: str
@@ -138,10 +199,7 @@ def fetch_polymarket_weather():
         if "temperature" not in title.lower() and "highest" not in title.lower():
             continue
 
-        meta = parse_event_title(title)
-        city = meta["city"]
-        date_str = meta["date_label"]
-        city_key = normalize_city_query(city)
+        interpreted = interpret_market_event(title)
 
         markets = ev.get("markets", [])
         outcomes = []
@@ -158,10 +216,7 @@ def fetch_polymarket_weather():
 
         result.append(
             {
-                "question": meta["question"],
-                "city": city,
-                "city_key": city_key,
-                "date": date_str,
+                **interpreted,
                 "outcomes": outcomes,
                 "volume": ev.get("volume", "0"),
                 "liquidity": ev.get("liquidity", "0"),

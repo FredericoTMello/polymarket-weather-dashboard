@@ -19,15 +19,15 @@ Use junto com `PRODUCT_PLAN.md`.
 
 Objetivo: garantir que a implementacao siga a nova visao de produto.
 
-- [ ] Revisar `PRODUCT_PLAN.md` e confirmar o MVP real.
-- [ ] Definir a saida principal da pagina de analise.
-- [ ] Confirmar o que fica fora do MVP inicial.
-- [ ] Registrar quais partes do projeto atual serao reaproveitadas.
+- [x] Revisar `PRODUCT_PLAN.md` e confirmar o MVP real.
+- [x] Definir a saida principal da pagina de analise.
+- [x] Confirmar o que fica fora do MVP inicial.
+- [x] Registrar quais partes do projeto atual serao reaproveitadas.
 
 Concluido quando:
 
-- [ ] existe um MVP claro de mercado unico
-- [ ] existe separacao entre MVP, fase seguinte e itens adiados
+- [x] existe um MVP claro de mercado unico
+- [x] existe separacao entre MVP, fase seguinte e itens adiados
 
 ## Fase 1 - Restaurar baseline tecnico
 
@@ -36,14 +36,14 @@ Objetivo: fazer o projeto atual rodar com fluxo minimo confiavel.
 - [x] Corrigir blockers de parse/runtime no frontend.
 - [x] Garantir que `server.py` rode no repositorio atual.
 - [x] Remover suposicoes operacionais quebradas, como caminhos antigos de execucao.
-- [ ] Validar o fluxo minimo: mercado -> weather -> analise -> UI.
+- [x] Validar o fluxo minimo: mercado -> weather -> analise -> UI.
 
 Concluido quando:
 
-- [ ] o frontend carrega sem erro fatal imediato
+- [x] o frontend carrega sem erro fatal imediato
 - [x] o backend sobe localmente com comando simples
 - [x] as rotas principais respondem
-- [ ] existe um procedimento minimo de execucao local
+- [x] existe um procedimento minimo de execucao local
 
 ## Fase 2 - Fixar contrato de dados
 
@@ -133,12 +133,12 @@ Concluido quando:
 
 ## Proximo Marco Recomendado
 
-Comecar pela Fase 1, mas executando apenas o necessario para:
+Iniciar o ciclo market-first descrito em `MARKET_FIRST_MVP_PLAN.md`, executando apenas o necessario para:
 
-- restaurar execucao
-- validar o fluxo minimo
-- preparar terreno para a migracao de UX e arquitetura
+- listar mercados como entrada principal
+- manter compatibilidade temporaria com o fluxo por cidade
+- aproximar o produto de um MVP real sem abrir escopo de SaaS
 
 ## Regra de acompanhamento
 
-- [ ] marcar task somente depois de validada
+- [x] marcar task somente depois de validada
