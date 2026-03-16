@@ -13,7 +13,8 @@ O ponto ainda vago nao e mais "como rodar" ou "como interpretar minimamente o me
 
 Fase 1 concluida.
 Fase 2 concluida.
-Fase 3 e a proxima fase ativa.
+Fase 3 concluida.
+Ciclo market-first concluido.
 
 ## Goal
 
@@ -158,7 +159,7 @@ Definicao de pronto:
 
 ### Fase 3 - Reorganizar A Tela Em Torno Do Contrato
 
-Status: proxima
+Status: concluida
 
 Objetivo:
 fazer a tela parecer produto de mercado, nao produto de cidade.

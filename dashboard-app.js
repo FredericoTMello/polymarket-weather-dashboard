@@ -780,6 +780,12 @@ const View = {
     if (DOM.status) DOM.status.textContent = message;
   },
 
+  getContractStatusMeta(parseStatus) {
+    if (parseStatus === "valid") return "Contrato valido no baseline atual";
+    if (parseStatus === "partial") return "Contrato parcial no baseline atual";
+    return "Contrato insuficiente no baseline atual";
+  },
+
   normalizeAnalyticalLabel(message) {
     return String(message || "")
       .replace("Modelos alinhados", "Leitura heuristica mais estavel")
@@ -792,35 +798,71 @@ const View = {
   },
 
   renderAnalysisCard(city) {
+    const market = State.activeMarket;
+    const contractStatus = market ? this.getContractStatusMeta(market?.parse_status) : "Fallback por cidade";
+    const contractLocation = [market?.city || city.name, market?.date].filter(Boolean).join(" · ");
+    const contractOutcomes = (market?.outcomes || []).slice(0, 4);
+    const contractHero = market
+      ? `
+        <div class="contract-hero">
+          <div class="contract-kicker">Contrato em analise</div>
+          <div class="contract-question">${Helpers.escapeHtml(market.question || "Mercado sem titulo")}</div>
+          <div class="contract-meta">
+            <span class="contract-pill">${Helpers.escapeHtml(contractLocation || city.name)}</span>
+            <span class="contract-pill">${Helpers.escapeHtml(contractStatus)}</span>
+            <span class="contract-pill">${Helpers.escapeHtml(market.rule_confidence || "LOW")}</span>
+          </div>
+          <div class="contract-outcomes">
+            ${contractOutcomes.length
+              ? contractOutcomes
+                  .map((outcome, index) => `<span class="contract-outcome ${index === 0 ? "contract-outcome-top" : ""}">${Helpers.escapeHtml(Helpers.convertRangeToC(outcome.label))}: ${(outcome.probability * 100).toFixed(0)}%</span>`)
+                  .join("")
+              : '<span class="contract-pill contract-pill-muted">Outcomes ainda indisponiveis</span>'}
+          </div>
+        </div>
+      `
+      : `
+        <div class="contract-hero">
+          <div class="contract-kicker">Modo fallback temporario</div>
+          <div class="contract-question">${Helpers.escapeHtml(city.name)}</div>
+          <div class="contract-meta">
+            <span class="contract-pill contract-pill-fallback">Analise aberta por cidade</span>
+            <span class="contract-pill contract-pill-muted">Use a busca principal para entrar por contrato do Polymarket</span>
+          </div>
+        </div>
+      `;
+
     DOM.cards.innerHTML = `
       <div class="card" id="${city.id}">
         <div class="card-header">
           <div class="card-header-left">
-            <div class="panel-title">Analise ativa</div>
-            <div class="city-name">${Helpers.escapeHtml(city.name)}</div>
-            <div class="city-country">${Helpers.escapeHtml([city.region, city.country].filter(Boolean).join(", "))} · ${city.lat.toFixed(2)}°, ${city.lon.toFixed(2)}°</div>
+            <div class="panel-title">${market ? "Analise orientada por contrato" : "Analise aberta por cidade"}</div>
+            <div class="city-name">${Helpers.escapeHtml(market?.question || city.name)}</div>
+            <div class="city-country">${Helpers.escapeHtml([city.name, city.region, city.country].filter(Boolean).join(", "))} · ${city.lat.toFixed(2)}°, ${city.lon.toFixed(2)}°</div>
           </div>
           <div class="card-btns">
             <button class="btn-remove" id="clearAnalysisBtn" title="Limpar analise">Limpar</button>
           </div>
         </div>
+        ${contractHero}
         <div class="summary-grid">
-          <div class="summary-item"><span class="summary-label">Temperatura atual</span><span class="summary-value" id="temp-${city.id}">carregando...</span></div>
-          <div class="summary-item"><span class="summary-label">Mercado selecionado</span><span class="summary-value" id="market-summary-${city.id}">Buscando contratos abertos...</span></div>
-          <div class="summary-item"><span class="summary-label">Modelos e historico</span><span class="summary-value" id="weather-summary-${city.id}">Compilando sinais...</span></div>
-          <div class="summary-item"><span class="summary-label">Limites da leitura</span><span class="summary-value" id="confidence-summary-${city.id}">Aguardando sinais e limites atuais...</span></div>
+          <div class="summary-item"><span class="summary-label">Contrato ativo</span><span class="summary-value" id="market-summary-${city.id}">Buscando contexto do contrato...</span></div>
+          <div class="summary-item"><span class="summary-label">Interpretacao do contrato</span><span class="summary-value" id="contract-status-${city.id}">${Helpers.escapeHtml(contractStatus)}</span></div>
+          <div class="summary-item"><span class="summary-label">Clima de suporte</span><span class="summary-value" id="weather-summary-${city.id}">Compilando sinais...</span></div>
+          <div class="summary-item"><span class="summary-label">Suporte meteorologico</span><span class="summary-value" id="confidence-summary-${city.id}">Aguardando sinais e limites atuais...</span></div>
         </div>
         <div class="section-block">
-          <div class="panel-title">Resumo principal</div>
+          <div class="panel-title">Evidencia meteorologica</div>
+          <div class="stats"><div class="stat">Temperatura atual: <span id="temp-${city.id}">carregando...</span></div></div>
           <div class="stats" id="stats-${city.id}"></div>
           <div class="insights" id="insights-${city.id}"></div>
         </div>
         <div class="section-block">
-          <div class="panel-title">Mercado selecionado</div>
+          <div class="panel-title">Leitura do contrato</div>
           <div id="poly-${city.id}"></div>
         </div>
         <div class="section-block">
-          <div class="panel-title">Modelos e historico comparavel</div>
+          <div class="panel-title">Modelos e historico de suporte</div>
           <div class="chart-container"><canvas id="chart-${city.id}"></canvas></div>
         </div>
         <div class="section-block">
