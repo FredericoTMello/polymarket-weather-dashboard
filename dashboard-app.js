@@ -582,9 +582,14 @@ AnalysisEngine.buildMarketAnalysis = function buildMarketAnalysis(events, modelD
     date_not_extracted: { label: "Data nao extraida do titulo", css: "poly-note-risk" },
   };
   const parseStatusLabels = {
-    valid: "Contrato valido no baseline atual",
-    partial: "Contrato parcial no baseline atual",
-    unknown: "Contrato insuficiente no baseline atual",
+    valid: "Interpretado no baseline",
+    partial: "Parcial no baseline",
+    unknown: "Insuficiente no baseline",
+  };
+  const parseStatusBadgeClasses = {
+    valid: "status-pill status-valid",
+    partial: "status-pill status-partial",
+    unknown: "status-pill status-unknown",
   };
   const confidenceBadge = {
     HIGH: "confidence-high",
@@ -596,6 +601,11 @@ AnalysisEngine.buildMarketAnalysis = function buildMarketAnalysis(events, modelD
   let forecastLimitedCount = 0;
 
   const uniqueDates = [...new Set(marketEvents.map((event) => event.date).filter(Boolean))].sort();
+  const statusCounts = marketEvents.reduce((accumulator, event) => {
+    const key = event.parse_status || "unknown";
+    accumulator[key] = (accumulator[key] || 0) + 1;
+    return accumulator;
+  }, { valid: 0, partial: 0, unknown: 0 });
   let html = '<div class="poly-section">';
   html += '<div class="poly-title">Polymarket - Leitura heuristica de mercado</div>';
   html += '<div class="poly-meta" style="margin-bottom:10px">Leitura experimental baseada em modelos, data inferida e timezone automatico. Nao equivale a validacao completa do SPEC.</div>';
@@ -611,6 +621,12 @@ AnalysisEngine.buildMarketAnalysis = function buildMarketAnalysis(events, modelD
     html += `<select class="date-filter" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:12px"><option value="">Todas</option>${uniqueDates.map((date) => `<option value="${Helpers.escapeHtml(date)}">${Helpers.escapeHtml(date)}</option>`).join("")}</select>`;
     html += "</div>";
   }
+  html += '<div class="poly-section-summary">';
+  html += `<span class="poly-badge poly-badge-valid">${statusCounts.valid} validos</span>`;
+  html += `<span class="poly-badge poly-badge-partial">${statusCounts.partial} parciais</span>`;
+  html += `<span class="poly-badge poly-badge-unknown">${statusCounts.unknown} insuficientes</span>`;
+  html += '<span class="poly-badge">Leitura heuristica</span>';
+  html += "</div>";
 
   let confidenceSummary = "Suporte meteorologico ainda nao consolidado";
 
@@ -672,8 +688,8 @@ AnalysisEngine.buildMarketAnalysis = function buildMarketAnalysis(events, modelD
     }
 
     html += '<div class="poly-status-grid">';
-    html += `<div class="poly-status-item"><span class="poly-status-label">Interpretacao do contrato</span><span class="poly-status-value">${Helpers.escapeHtml(parseStatusLabels[parseStatus] || parseStatusLabels.unknown)} <span class="confidence-badge ${confidenceBadge[ruleConfidence] || confidenceBadge.LOW}">${Helpers.escapeHtml(ruleConfidence)}</span></span></div>`;
-    html += `<div class="poly-status-item"><span class="poly-status-label">Suporte de forecast</span><span class="poly-status-value ${forecastSupportClass}">${Helpers.escapeHtml(forecastSupportLabel)}</span></div>`;
+    html += `<div class="poly-status-item"><span class="poly-status-label">Estado do contrato</span><span class="poly-status-value"><span class="${parseStatusBadgeClasses[parseStatus] || parseStatusBadgeClasses.unknown}">${Helpers.escapeHtml(parseStatusLabels[parseStatus] || parseStatusLabels.unknown)}</span> <span class="confidence-badge ${confidenceBadge[ruleConfidence] || confidenceBadge.LOW}">${Helpers.escapeHtml(ruleConfidence)}</span></span></div>`;
+    html += `<div class="poly-status-item"><span class="poly-status-label">Suporte meteorologico</span><span class="poly-status-value ${forecastSupportClass}">${Helpers.escapeHtml(forecastSupportLabel)}</span></div>`;
     html += "</div>";
 
     if (parseStatus !== "valid" && parseNotes.length) {
@@ -742,11 +758,11 @@ AnalysisEngine.buildMarketAnalysis = function buildMarketAnalysis(events, modelD
       });
       html += "</div>";
       if (parseStatus !== "valid") {
-        html += '<div class="poly-compare">Contrato ainda parcial ou insuficiente no baseline atual. Mantendo leitura descritiva do mercado.</div>';
+        html += '<div class="poly-compare">Leitura descritiva apenas. O contrato ainda nao sustenta uma leitura heuristica forte.</div>';
       } else if (avgPredC != null) {
-        html += `<div class="poly-compare">Modelos preveem ${avgPredC.toFixed(1)}°C - suporte meteorologico ainda incompleto para leitura heuristica.</div>`;
+        html += `<div class="poly-compare">Modelos apontam ${avgPredC.toFixed(1)}°C, mas o suporte meteorologico ainda esta incompleto.</div>`;
       } else {
-        html += '<div class="poly-compare">Sem suporte meteorologico suficiente para estimar este contrato no baseline atual.</div>';
+        html += '<div class="poly-compare">Sem suporte meteorologico suficiente para estimar este contrato agora.</div>';
       }
     }
 
@@ -769,7 +785,11 @@ AnalysisEngine.buildMarketAnalysis = function buildMarketAnalysis(events, modelD
 
   return {
     marketSummary: selectedMarket
-      ? `${validCount ? "Contrato selecionado carregado" : "Contrato selecionado sem validacao"} · ${validCount} valido(s) · ${partialCount} parcial(is) · ${unknownCount} insuficiente(s)`
+      ? validCount
+        ? "Contrato pronto para leitura no baseline"
+        : partialCount
+          ? "Contrato parcial no baseline atual"
+          : "Contrato ainda insuficiente no baseline"
       : `${marketEvents.length} contrato(s) · ${validCount} validos · ${partialCount} parciais · ${unknownCount} insuficientes`,
     confidenceSummary,
     html,
@@ -798,6 +818,12 @@ const View = {
     return "Contrato insuficiente no baseline atual";
   },
 
+  getContractStatusClass(parseStatus) {
+    if (parseStatus === "valid") return "contract-status-valid";
+    if (parseStatus === "partial") return "contract-status-partial";
+    return "contract-status-unknown";
+  },
+
   normalizeAnalyticalLabel(message) {
     return String(message || "")
       .replace("Modelos alinhados", "Leitura heuristica mais estavel")
@@ -811,7 +837,9 @@ const View = {
 
   renderAnalysisCard(city) {
     const market = State.activeMarket;
+    const contractStatusKey = market?.parse_status || "unknown";
     const contractStatus = market ? this.getContractStatusMeta(market?.parse_status) : "Fallback por cidade";
+    const contractStatusClass = this.getContractStatusClass(contractStatusKey);
     const contractLocation = [market?.city || city.name, market?.date].filter(Boolean).join(" · ");
     const contractOutcomes = (market?.outcomes || []).slice(0, 4);
     const contractHero = market
@@ -821,7 +849,7 @@ const View = {
           <div class="contract-question">${Helpers.escapeHtml(market.question || "Mercado sem titulo")}</div>
           <div class="contract-meta">
             <span class="contract-pill">${Helpers.escapeHtml(contractLocation || city.name)}</span>
-            <span class="contract-pill">${Helpers.escapeHtml(contractStatus)}</span>
+            <span class="contract-pill ${contractStatusClass}">${Helpers.escapeHtml(contractStatus)}</span>
             <span class="contract-pill">${Helpers.escapeHtml(market.rule_confidence || "LOW")}</span>
           </div>
           <div class="contract-outcomes">
