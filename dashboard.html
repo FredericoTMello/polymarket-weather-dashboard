@@ -14,7 +14,7 @@
     .sub{color:var(--muted);font-size:13px;margin-bottom:16px}
 
     /* Favorites */
-    .fav-section{margin-bottom:16px}
+    .fav-section{display:none}
     .fav-label{font-size:12px;color:var(--muted);margin-bottom:6px;font-weight:600}
     .fav-chips{display:flex;gap:8px;flex-wrap:wrap}
     .fav-chip{padding:6px 14px;border-radius:20px;background:rgba(139,92,246,0.12);border:1px solid rgba(139,92,246,0.25);color:var(--accent);font-size:13px;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;gap:6px}
@@ -40,8 +40,9 @@
     .tag{padding:6px 12px;border-radius:8px;background:rgba(255,255,255,0.05);font-size:12px;color:var(--muted)}
 
     /* Cards */
-    .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;margin-bottom:24px}
-    .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;position:relative}
+    .analysis-status{margin:0 0 16px;padding:12px 14px;border:1px solid rgba(139,92,246,0.2);border-radius:12px;background:rgba(139,92,246,0.08);color:#ddd6fe;font-size:13px}
+    .cards{display:block;margin-bottom:24px}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:20px;position:relative;max-width:980px;margin:0 auto}
     .card-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
     .card-header-left{flex:1}
     .city-name{font-size:18px;font-weight:700}
@@ -55,6 +56,13 @@
     .current-temp{font-size:42px;font-weight:800;margin:8px 0}
     .stats{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
     .stat{padding:6px 10px;border-radius:8px;background:rgba(255,255,255,0.04);font-size:12px}
+    .summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin:14px 0 18px}
+    .summary-item{padding:12px;border-radius:12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.04)}
+    .summary-label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:6px}
+    .summary-value{font-size:15px;font-weight:700;color:var(--text)}
+    .section-block{margin-top:18px;padding-top:18px;border-top:1px solid rgba(255,255,255,0.05)}
+    .panel-title{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:10px}
+    .empty-state{max-width:980px;margin:0 auto;padding:28px;border:1px dashed rgba(255,255,255,0.12);border-radius:18px;background:rgba(255,255,255,0.02);color:var(--muted);text-align:center}
 
     /* Insight badges */
     .insights{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
@@ -137,7 +145,7 @@
 
   <div class="search-wrapper">
     <input type="text" id="cityInput" placeholder="Digite o nome de uma cidade (ex: London, São Paulo, Tokyo)" autocomplete="off" />
-    <button id="addBtn">+ Adicionar</button>
+    <button id="addBtn">Analisar cidade</button>
     <div class="dropdown" id="dropdown"></div>
   </div>
 
@@ -147,6 +155,7 @@
     <div class="tag">σ floor: 1.5°C (conservador)</div>
   </div>
 
+  <div id="analysisStatus" class="analysis-status">Selecione uma cidade para manter uma leitura ativa de mercado, modelos e historico em uma unica tela.</div>
   <div id="cards" class="cards"></div>
 
   <footer>
@@ -158,8 +167,9 @@
   </footer>
 </div>
 
-<script>
-const MAX_CITIES = 4;
+<script type="module" src="./dashboard-app.js"></script>
+<script type="text/plain" id="legacy-dashboard-script">
+const MAX_CITIES = 1;
 const cities = [];
 const charts = {};
 const STORAGE_KEY = 'polymarket_weather_favs';
@@ -205,7 +215,7 @@ function toggleFavorite(cityData) {
 }
 function renderFavorites() {
   const container = document.getElementById('favChips');
-  const emptyEl = document.getElementById('favEmpty');
+  if (!container) return;
   const favs = loadFavorites();
   container.innerHTML = '';
   if (!favs.length) {
@@ -250,6 +260,7 @@ const input = document.getElementById('cityInput');
 const dropdown = document.getElementById('dropdown');
 const addBtn = document.getElementById('addBtn');
 const cardsEl = document.getElementById('cards');
+const statusEl = document.getElementById('analysisStatus');
 
 let selectedCity = null;
 let searchTimeout = null;
@@ -289,6 +300,26 @@ async function fetchCities(q) {
 
 // ─── Add / Remove ───
 addBtn.addEventListener('click', addCity);
+
+function setStatus(message) {
+  if (statusEl) statusEl.textContent = message;
+}
+
+function renderEmptyState() {
+  cardsEl.innerHTML = `<div class="empty-state">Nenhuma analise ativa. Escolha uma cidade para abrir um unico painel com previsoes, historico e mercados do Polymarket.</div>`;
+}
+
+function setActiveCity(baseCity) {
+  while (cities.length) removeCity(cities[0].id);
+  const id = 'c' + Date.now();
+  const city = { ...baseCity, id };
+  cities.push(city);
+  selectedCity = null;
+  input.value = '';
+  renderCard(city);
+  setStatus(`Analisando ${city.name}. A pagina agora mantem uma unica leitura ativa por vez.`);
+  loadCityData(city);
+}
 
 function addCity() {
   if (!selectedCity) { alert('Selecione uma cidade da lista de sugestões.'); return; }
@@ -341,12 +372,83 @@ function renderCard(city) {
   cardsEl.appendChild(card);
 }
 
+function addCity() {
+  if (!selectedCity) { alert('Selecione uma cidade da lista de sugestoes.'); return; }
+  if (cities.some(c => c.name === selectedCity.name && c.lat === selectedCity.lat)) {
+    setStatus(`A analise atual ja esta focada em ${selectedCity.name}.`);
+    selectedCity = null;
+    input.value = '';
+    return;
+  }
+  setActiveCity(selectedCity);
+}
+
+function removeCity(id) {
+  const idx = cities.findIndex(c => c.id === id);
+  if (idx > -1) cities.splice(idx, 1);
+  if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+  const el = document.getElementById(id);
+  if (el) el.remove();
+  if (!cities.length) {
+    renderEmptyState();
+    setStatus('Selecione outra cidade para continuar a analise.');
+  }
+}
+
+function renderCard(city) {
+  cardsEl.innerHTML = '';
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.id = city.id;
+  card.innerHTML = `
+    <div class="card-header">
+      <div class="card-header-left">
+        <div class="panel-title">Analise ativa</div>
+        <div class="city-name">${esc(city.name)}</div>
+        <div class="city-country">${esc([city.region, city.country].filter(Boolean).join(', '))} · ${city.lat.toFixed(2)}°, ${city.lon.toFixed(2)}°</div>
+      </div>
+      <div class="card-btns">
+        <button class="btn-remove" onclick="removeCity('${city.id}')" title="Limpar analise">Limpar</button>
+      </div>
+    </div>
+    <div class="summary-grid">
+      <div class="summary-item"><span class="summary-label">Temperatura atual</span><span class="summary-value" id="temp-${city.id}">carregando...</span></div>
+      <div class="summary-item"><span class="summary-label">Mercado selecionado</span><span class="summary-value" id="market-summary-${city.id}">Buscando contratos abertos...</span></div>
+      <div class="summary-item"><span class="summary-label">Modelos e historico</span><span class="summary-value" id="weather-summary-${city.id}">Compilando sinais...</span></div>
+      <div class="summary-item"><span class="summary-label">Leitura de confianca</span><span class="summary-value" id="confidence-summary-${city.id}">Aguardando edge e dispersao...</span></div>
+    </div>
+    <div class="section-block">
+      <div class="panel-title">Resumo principal</div>
+      <div class="stats" id="stats-${city.id}"></div>
+      <div class="insights" id="insights-${city.id}"></div>
+    </div>
+    <div class="section-block">
+      <div class="panel-title">Mercado selecionado</div>
+      <div id="poly-${city.id}"></div>
+    </div>
+    <div class="section-block">
+      <div class="panel-title">Modelos e historico comparavel</div>
+      <div class="chart-container"><canvas id="chart-${city.id}"></canvas></div>
+    </div>
+    <div class="section-block">
+      <div class="panel-title">Fontes e cobertura</div>
+      <table class="sources-table" id="sources-${city.id}">
+        <tr><th>Fonte</th><th>Dado</th><th>Endpoint</th></tr>
+        <tr><td colspan="3" class="loading">Buscando dados de multiplas fontes...</td></tr>
+      </table>
+    </div>
+  `;
+  cardsEl.appendChild(card);
+}
+
 // ─── Load City Data (SINGLE FETCH — all models in one request) ───
 async function loadCityData(city) {
   const tempEl = document.getElementById('temp-' + city.id);
   const statsEl = document.getElementById('stats-' + city.id);
   const insightsEl = document.getElementById('insights-' + city.id);
   const sourcesEl = document.getElementById('sources-' + city.id);
+  const weatherSummaryEl = document.getElementById('weather-summary-' + city.id);
+  const confidenceSummaryEl = document.getElementById('confidence-summary-' + city.id);
 
   try {
     const now = new Date();
@@ -452,6 +554,19 @@ async function loadCityData(city) {
     }
 
     insightsEl.innerHTML = anomalyHTML + divergenceHTML + consensusHTML;
+    if (weatherSummaryEl) {
+      weatherSummaryEl.textContent = histMean != null
+        ? `Faixa prevista ${fmt(avgMin)} a ${fmt(avgMax)} · media hist. ${Math.round(histMean)}°C`
+        : `Faixa prevista ${fmt(avgMin)} a ${fmt(avgMax)} · historico indisponivel`;
+    }
+    if (confidenceSummaryEl) {
+      const spread = modelMeans.length >= 2 ? (Math.max(...modelMeans) - Math.min(...modelMeans)) : null;
+      confidenceSummaryEl.textContent = spread == null
+        ? 'Sem dispersao suficiente para leitura'
+        : spread <= 1.5
+          ? `Modelos alinhados (Δ ${spread.toFixed(1)}°C)`
+          : `Modelos divergentes (Δ ${spread.toFixed(1)}°C)`;
+    }
 
     // ── Chart: All models + historical baseline ──
     const labels = dates.map(d => d.slice(5));
@@ -520,6 +635,9 @@ async function loadCityData(city) {
   } catch (err) {
     console.error('Error loading city data:', err);
     tempEl.textContent = 'Erro';
+    if (weatherSummaryEl) weatherSummaryEl.textContent = 'Falha ao carregar previsoes e historico.';
+    if (confidenceSummaryEl) confidenceSummaryEl.textContent = 'Leitura indisponivel.';
+    setStatus(`Falha ao carregar a analise de ${city.name}.`);
   }
 }
 
@@ -670,23 +788,25 @@ const CITY_ALIASES = {
 
 async function loadPolymarketData(city, modelData) {
   const polyEl = document.getElementById('poly-' + city.id);
+  const marketSummaryEl = document.getElementById('market-summary-' + city.id);
+  const confidenceSummaryEl = document.getElementById('confidence-summary-' + city.id);
   if (!polyEl) return;
 
   try {
-    const cityLower = city.name.toLowerCase();
-    const alias = CITY_ALIASES[cityLower] || cityLower;
     const [marketRes, errorStats] = await Promise.all([
-      fetch(`/api/polymarket/city?city=${encodeURIComponent(alias)}`).then(r => r.json()),
+      fetch(`/api/polymarket/city?city=${encodeURIComponent(city.name)}`).then(r => r.json()),
       calcModelError(city.lat, city.lon)
     ]);
 
     if (marketRes.error) throw new Error(marketRes.error);
 
     if (!marketRes.length) {
+      if (marketSummaryEl) marketSummaryEl.textContent = 'Nenhum mercado aberto encontrado';
       polyEl.innerHTML = `<div class="poly-section"><div class="poly-title">📈 Polymarket</div><div class="poly-none">Nenhum mercado de temperatura aberto para ${esc(city.name)}</div></div>`;
       return;
     }
 
+    if (marketSummaryEl) marketSummaryEl.textContent = `${marketRes.length} contrato(s) de temperatura encontrado(s)`;
     const monthNames = ['january','february','march','april','may','june','july','august','september','october','november','december'];
 
     let html = '<div class="poly-section">';
@@ -736,7 +856,7 @@ async function loadPolymarketData(city, modelData) {
       let avgPredC = null;
       let modelSpread = null;
       let marketRuleConfidence = 'LOW';
-      let dateValid = false;
+      let targetDate = null;
       
       if (dateParts.length === 2) {
         const monthIdx = monthNames.indexOf(dateParts[0]);
@@ -746,7 +866,7 @@ async function loadPolymarketData(city, modelData) {
           const now = new Date();
           const currentYear = now.getFullYear();
           // Try current year first, then next year if date is in the past
-          let targetDate = `${currentYear}-${String(monthIdx + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+          targetDate = `${currentYear}-${String(monthIdx + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
           let targetDateObj = new Date(targetDate);
           
           // If date is in the past, assume next year (for future contracts)
@@ -757,7 +877,6 @@ async function loadPolymarketData(city, modelData) {
           
           // SPEC 2.1.2: Block trade if date in past
           if (targetDateObj > now) {
-            dateValid = true;
             const idx = (modelData.dates || []).indexOf(targetDate);
 
             if (idx >= 0) {
@@ -779,19 +898,10 @@ async function loadPolymarketData(city, modelData) {
             marketRuleConfidence = 'LOW'; // Date in past
           }
         }
-      }ODELS
-              .map(m => modelData.models?.[m]?.max?.[idx])
-              .filter(v => v != null);
-            if (preds.length) {
-              avgPredC = preds.reduce((a, b) => a + b, 0) / preds.length;
-              modelSpread = Math.max(...preds) - Math.min(...preds);
-            }
-          }
-        }
       }
 
       // ── EDGE TABLE (Dynamic Sigma per SPEC) ──
-      if (avgPredC != null && errorStats) {
+      if (avgPredC != null && errorStats && targetDate) {
         // Calculate horizon in days from now to target date
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -817,7 +927,7 @@ async function loadPolymarketData(city, modelData) {
         html += `<table class="edge-table"><tr><th>Temp</th><th>Prob Real</th><th>Prob Mercado</th><th>Edge</th><th>Sinal</th></tr>`;
 
         for (const o of outcomes) {
-          const parsed = parseRange(o.range);
+          const parsed = parseRange(o.label);
           if (!parsed) continue;
 
           const probReal = probInRange(mu, sigmaFinal, parsed.lo, parsed.hi);
@@ -847,10 +957,10 @@ async function loadPolymarketData(city, modelData) {
 
           if (edge > bestEdge) {
             bestEdge = edge;
-            bestOutcome = convertRangeToC(o.range);
+            bestOutcome = convertRangeToC(o.label);
           }
 
-          const label = convertRangeToC(o.range);
+          const label = convertRangeToC(o.label);
           html += `<tr class="${rowClass}"><td>${esc(label)}</td><td>${realPct}%</td><td>${mktPct}%</td><td>${edgeSign}${edgePct}%</td><td>${signal}</td></tr>`;
         }
 
@@ -862,8 +972,10 @@ async function loadPolymarketData(city, modelData) {
         
         html += '<div class="edge-verdict">';
         if (marketRuleConfidence === 'LOW') {
+          if (confidenceSummaryEl) confidenceSummaryEl.textContent = 'Mercado com baixa confianca semantica';
           html += `<span class="verdict-skip">❌ MERCADO INVÁLIDO: data no passado ou indefinida</span>`;
         } else if (bestEdge >= 0.10 && marketRuleConfidence === 'HIGH') {
+          if (confidenceSummaryEl) confidenceSummaryEl.textContent = `Edge forte com confianca ${marketRuleConfidence}`;
           html += `<span class="verdict-go">✅ EDGE DETECTADO: <strong>${esc(bestOutcome)}</strong> com +${(bestEdge * 100).toFixed(0)}% de edge</span>`;
           if (modelSpread != null && modelSpread <= 1.5) {
             html += ` <span class="verdict-aligned">· Modelos alinhados (Δ${modelSpread.toFixed(1)}°C) ✓</span>`;
@@ -872,9 +984,11 @@ async function loadPolymarketData(city, modelData) {
           }
           html += `<span class="confidence-badge ${confClass}">${confLabel}</span>`;
         } else if (bestEdge >= 0.05) {
+          if (confidenceSummaryEl) confidenceSummaryEl.textContent = `Edge fraco com confianca ${marketRuleConfidence}`;
           html += `<span class="verdict-weak">🟡 Edge fraco (+${(bestEdge * 100).toFixed(0)}%) — insuficiente</span>`;
           if (marketRuleConfidence !== 'HIGH') html += `<span class="confidence-badge ${confClass}">${confLabel}</span>`;
         } else {
+          if (confidenceSummaryEl) confidenceSummaryEl.textContent = `Sem edge relevante (${marketRuleConfidence})`;
           html += `<span class="verdict-skip">❌ SEM EDGE — mercado precificado corretamente</span>`;
           if (marketRuleConfidence !== 'HIGH') html += `<span class="confidence-badge ${confClass}">${confLabel}</span>`;
         }
@@ -882,12 +996,13 @@ async function loadPolymarketData(city, modelData) {
         html += '</div>';
 
       } else {
+        if (confidenceSummaryEl && avgPredC != null) confidenceSummaryEl.textContent = 'Mercado visivel, mas sem edge completo';
         // Fallback: just show outcomes without edge calc
         html += '<div class="poly-outcomes">';
         outcomes.slice(0, 6).forEach((o, idx) => {
           const pct = (o.probability * 100).toFixed(0);
           const cls = idx === 0 ? 'poly-outcome-top' : 'poly-outcome-yes';
-          const label = convertRangeToC(o.range);
+          const label = convertRangeToC(o.label);
           html += `<div class="poly-outcome ${cls}">${esc(label)}: ${pct}%</div>`;
         });
         html += '</div>';
@@ -920,6 +1035,7 @@ async function loadPolymarketData(city, modelData) {
 
   } catch (err) {
     console.warn('Polymarket fetch error:', err);
+    if (marketSummaryEl) marketSummaryEl.textContent = 'Proxy do Polymarket indisponivel';
     polyEl.innerHTML = `<div class="poly-section"><div class="poly-title">📈 Polymarket</div><div class="poly-none">Proxy offline — inicie server.py para ver dados do Polymarket</div></div>`;
   }
 }
@@ -944,16 +1060,8 @@ function convertRangeToC(range) {
 
 // ─── Init ───
 renderFavorites();
-
-// Auto-load market stations (airport-based, matching Polymarket resolution)
-MARKET_STATIONS.forEach(station => {
-  if (cities.length >= MAX_CITIES) return;
-  if (cities.some(c => c.id === station.id)) return;
-  const city = { ...station };
-  cities.push(city);
-  renderCard(city);
-  loadCityData(city);
-});
+renderEmptyState();
+setActiveCity(MARKET_STATIONS[0]);
 </script>
 </body>
 </html>

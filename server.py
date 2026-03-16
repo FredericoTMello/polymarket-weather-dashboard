@@ -1,45 +1,112 @@
 #!/usr/bin/env python3
 """
-Weather Intelligence Dashboard — Server com dados Polymarket.
-Scrape da página de previsões do Polymarket (dados embutidos no __NEXT_DATA__).
-Cache de 5 minutos. Sem API key necessária.
+Weather Intelligence Dashboard - local server with Polymarket-backed data.
+Scrapes the public weather predictions page and exposes a small local API.
 """
 import http.server
-import urllib.request
-import urllib.parse
 import json
 import os
+import re
 import sys
 import time
-import re
+import unicodedata
+import urllib.parse
+import urllib.request
 
 PORT = 8090
-BIND = "100.83.83.44"
+BIND = "127.0.0.1"
 DASHBOARD_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Cache
 _cache = {"data": None, "ts": 0, "ttl": 300}
 
 
+def fold_text(value):
+    """Lowercase and strip accents for tolerant city matching."""
+    normalized = unicodedata.normalize("NFKD", value or "")
+    ascii_text = normalized.encode("ascii", "ignore").decode("ascii")
+    return re.sub(r"\s+", " ", ascii_text).strip().lower()
+
+
+# Canonical Polymarket city keys with accepted aliases.
+CITY_ALIASES = {
+    "nyc": ["new york", "ny", "jfk", "new york (jfk)", "nova york", "nova iorque"],
+    "london": ["london", "heathrow", "london (heathrow)", "londres"],
+    "tokyo": ["tokyo", "haneda", "tokyo (haneda)", "toquio", "tokio"],
+    "seoul": ["seoul", "seul"],
+    "beijing": ["beijing", "pequim"],
+    "ankara": ["ankara", "ancara"],
+    "milan": ["milan", "milao"],
+    "munich": ["munich", "munique"],
+    "moscow": ["moscow", "moscou"],
+    "sao paulo": ["sao paulo", "sao-paulo", "sp"],
+    "wellington": ["wellington"],
+    "toronto": ["toronto"],
+    "chicago": ["chicago"],
+    "dallas": ["dallas"],
+    "seattle": ["seattle"],
+    "miami": ["miami"],
+    "atlanta": ["atlanta"],
+    "buenos aires": ["buenos aires"],
+}
+
+FOLDED_CITY_ALIASES = {
+    city_key: {fold_text(city_key), *(fold_text(alias) for alias in aliases)}
+    for city_key, aliases in CITY_ALIASES.items()
+}
+
+
+def parse_event_title(title):
+    """Extract canonical question, city, and date fields from a market title."""
+    question = (title or "").strip()
+    city = ""
+    date_label = ""
+
+    match = re.search(r"\bin\s+(.+?)\s+on\s+(.+?)[\?]?$", question, re.IGNORECASE)
+    if match:
+        city = match.group(1).strip()
+        date_label = match.group(2).strip()
+
+    return {"question": question, "city": city, "date_label": date_label}
+
+
+def normalize_city_query(query):
+    """Map a raw city string to a canonical Polymarket city key when possible."""
+    folded_query = fold_text(query)
+    if not folded_query:
+        return ""
+
+    for city_key, aliases in FOLDED_CITY_ALIASES.items():
+        if folded_query in aliases:
+            return city_key
+
+    for city_key, aliases in FOLDED_CITY_ALIASES.items():
+        for alias in aliases:
+            if alias in folded_query or folded_query in alias:
+                return city_key
+
+    return folded_query
+
+
 def fetch_polymarket_weather():
-    """Fetch weather prediction data from Polymarket page."""
+    """Fetch weather prediction data from the Polymarket page."""
     now = time.time()
     if _cache["data"] and (now - _cache["ts"]) < _cache["ttl"]:
         return _cache["data"]
 
     url = "https://polymarket.com/predictions/weather"
-    req = urllib.request.Request(url, headers={
-        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36"
-    })
+    req = urllib.request.Request(
+        url,
+        headers={"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36"},
+    )
 
     try:
         resp = urllib.request.urlopen(req, timeout=15)
         html = resp.read().decode("utf-8", errors="replace")
-    except Exception as e:
-        print(f"[Polymarket] Fetch error: {e}", flush=True)
+    except Exception as exc:
+        print(f"[Polymarket] Fetch error: {exc}", flush=True)
         return _cache.get("data") or []
 
-    # Extract __NEXT_DATA__ JSON
     match = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', html, re.DOTALL)
     if not match:
         print("[Polymarket] No __NEXT_DATA__ found", flush=True)
@@ -51,45 +118,55 @@ def fetch_polymarket_weather():
         events_raw = []
         for page in pages:
             events_raw.extend(page.get("results", []))
-    except (KeyError, IndexError, json.JSONDecodeError) as e:
-        print(f"[Polymarket] Parse error: {e}", flush=True)
+    except (KeyError, IndexError, json.JSONDecodeError) as exc:
+        print(f"[Polymarket] Parse error: {exc}", flush=True)
         return _cache.get("data") or []
 
-    # Process events into clean structure
+    # Canonical API payload:
+    # {
+    #   question: str,
+    #   city: str,
+    #   city_key: str,
+    #   date: str,
+    #   outcomes: [{ label: str, probability: float }],
+    #   volume: str,
+    #   liquidity: str
+    # }
     result = []
     for ev in events_raw:
         title = ev.get("title", "")
         if "temperature" not in title.lower() and "highest" not in title.lower():
             continue
 
-        # Parse city and date from title
-        city_match = re.search(r"in (.+?) on (.+?)[\?]", title)
-        city = city_match.group(1) if city_match else ""
-        date_str = city_match.group(2).strip() if city_match else ""
+        meta = parse_event_title(title)
+        city = meta["city"]
+        date_str = meta["date_label"]
+        city_key = normalize_city_query(city)
 
         markets = ev.get("markets", [])
         outcomes = []
-        for m in markets:
-            label = m.get("groupItemTitle", m.get("question", ""))
-            # Get best price/probability
-            price = m.get("bestBid") or m.get("lastTradePrice") or 0
+        for market in markets:
+            label = market.get("groupItemTitle", market.get("question", ""))
+            price = market.get("bestBid") or market.get("lastTradePrice") or 0
             try:
                 price = float(price)
             except (ValueError, TypeError):
                 price = 0
-            outcomes.append({"range": label, "probability": price})
+            outcomes.append({"label": label, "probability": price})
 
-        # Sort by probability descending
-        outcomes.sort(key=lambda x: x["probability"], reverse=True)
+        outcomes.sort(key=lambda item: item["probability"], reverse=True)
 
-        result.append({
-            "title": title,
-            "city": city,
-            "date": date_str,
-            "outcomes": outcomes,
-            "volume": ev.get("volume", "0"),
-            "liquidity": ev.get("liquidity", "0"),
-        })
+        result.append(
+            {
+                "question": meta["question"],
+                "city": city,
+                "city_key": city_key,
+                "date": date_str,
+                "outcomes": outcomes,
+                "volume": ev.get("volume", "0"),
+                "liquidity": ev.get("liquidity", "0"),
+            }
+        )
 
     _cache["data"] = result
     _cache["ts"] = now
@@ -97,51 +174,18 @@ def fetch_polymarket_weather():
     return result
 
 
-# City alias mapping for fuzzy search
-CITY_ALIASES = {
-    # Polymarket city names as values
-    "nyc": ["new york", "ny", "jfk", "new york (jfk)", "nova york", "nova iorque"],
-    "london": ["london", "heathrow", "london (heathrow)", "londres"],
-    "tokyo": ["tokyo", "haneda", "tokyo (haneda)", "tóquio", "toquio"],
-    "seoul": ["seoul", "seul"],
-    "beijing": ["beijing", "pequim"],
-    "ankara": ["ankara", "ancara"],
-    "wellington": ["wellington"],
-    "toronto": ["toronto"],
-    "chicago": ["chicago"],
-    "dallas": ["dallas"],
-    "seattle": ["seattle"],
-    "miami": ["miami"],
-    "atlanta": ["atlanta"],
-    "buenos aires": ["buenos aires"],
-}
-
 def match_city_events(events, query):
-    """Match events by city with fuzzy alias support."""
-    query = query.lower().strip()
-    
-    # Direct substring match first
-    direct = [e for e in events if query in e["city"].lower()]
-    if direct:
-        return direct
-    
-    # Try alias lookup: find which Polymarket city this query maps to
-    target_city = None
-    for poly_city, aliases in CITY_ALIASES.items():
-        if query in aliases or query == poly_city:
-            target_city = poly_city
-            break
-    
-    if target_city:
-        return [e for e in events if target_city in e["city"].lower()]
-    
-    # Fallback: partial match on any alias
-    for poly_city, aliases in CITY_ALIASES.items():
-        for alias in aliases:
-            if alias in query or query in alias:
-                return [e for e in events if poly_city in e["city"].lower()]
-    
-    return []
+    """Match events by city using the canonical city key when possible."""
+    city_key = normalize_city_query(query)
+    if not city_key:
+        return []
+
+    matched = [event for event in events if event.get("city_key") == city_key]
+    if matched:
+        return matched
+
+    query_folded = fold_text(query)
+    return [event for event in events if query_folded in fold_text(event.get("city", ""))]
 
 
 class DashboardHandler(http.server.SimpleHTTPRequestHandler):
@@ -152,38 +196,35 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         parsed = urllib.parse.urlparse(self.path)
 
         if parsed.path == "/api/polymarket":
-            events = fetch_polymarket_weather()
-            self.send_json(events)
+            self.send_json(fetch_polymarket_weather())
             return
 
         if parsed.path == "/api/polymarket/city":
             params = urllib.parse.parse_qs(parsed.query)
-            city_q = params.get("city", [""])[0].lower().strip()
-            if not city_q:
+            city_q = params.get("city", [""])[0]
+            if not city_q.strip():
                 self.send_json([])
                 return
             events = fetch_polymarket_weather()
-            # Fuzzy matching with aliases
-            matched = match_city_events(events, city_q)
-            self.send_json(matched)
+            self.send_json(match_city_events(events, city_q))
             return
 
-        # Proxy for Geocoding API (avoids CORS)
         if parsed.path == "/api/geocode":
             params = urllib.parse.parse_qs(parsed.query)
             q = params.get("q", [""])[0].strip()
             if not q:
                 self.send_json([])
                 return
-            geo_url = f"https://geocoding-api.open-meteo.com/v1/search?name={urllib.parse.quote(q)}&count=8&language=pt&format=json"
+            geo_url = (
+                "https://geocoding-api.open-meteo.com/v1/search"
+                f"?name={urllib.parse.quote(q)}&count=8&language=pt&format=json"
+            )
             try:
                 with urllib.request.urlopen(geo_url, timeout=10) as resp:
                     data = json.loads(resp.read().decode())
-                    results = data.get("results", [])
-                    # Dashboard expects { results: [...] }
-                    self.send_json({"results": results})
-            except Exception as e:
-                self.send_json({"error": str(e)}, status=500)
+                    self.send_json({"results": data.get("results", [])})
+            except Exception as exc:
+                self.send_json({"error": str(exc)}, status=500)
             return
 
         super().do_GET()
