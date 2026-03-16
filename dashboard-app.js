@@ -28,6 +28,7 @@ const State = {
   selectedMarket: null,
   searchTimeout: null,
   marketSearchTimeout: null,
+  isLoadingAnalysis: false,
   chart: null,
   errorCache: {},
 };
@@ -780,6 +781,17 @@ const View = {
     if (DOM.status) DOM.status.textContent = message;
   },
 
+  setAnalysisBusy(isBusy) {
+    State.isLoadingAnalysis = isBusy;
+    if (DOM.marketButton) DOM.marketButton.disabled = isBusy;
+    if (DOM.addButton) DOM.addButton.disabled = isBusy;
+  },
+
+  renderDropdownMessage(dropdown, message, cssClass = "") {
+    dropdown.innerHTML = `<div class="dropdown-empty ${cssClass}">${Helpers.escapeHtml(message)}</div>`;
+    dropdown.style.display = "block";
+  },
+
   getContractStatusMeta(parseStatus) {
     if (parseStatus === "valid") return "Contrato valido no baseline atual";
     if (parseStatus === "partial") return "Contrato parcial no baseline atual";
@@ -859,7 +871,7 @@ const View = {
         </div>
         <div class="section-block">
           <div class="panel-title">Leitura do contrato</div>
-          <div id="poly-${city.id}"></div>
+          <div id="poly-${city.id}"><div class="loading">Carregando leitura do contrato...</div></div>
         </div>
         <div class="section-block">
           <div class="panel-title">Modelos e historico de suporte</div>
@@ -942,11 +954,12 @@ View.normalizeAnalyticalLabel = normalizeAnalyticalLabel;
 
 async function loadCity(city) {
   const selectedMarket = State.activeMarket;
+  View.setAnalysisBusy(true);
   View.renderAnalysisCard(city);
   if (selectedMarket) {
-    View.setStatus(`Analisando o contrato ${selectedMarket.question || "selecionado"} em ${city.name}. A busca por cidade continua disponivel como fallback.`);
+    View.setStatus(`Abrindo o contrato ${selectedMarket.question || "selecionado"} e carregando suporte meteorologico em ${city.name}...`);
   } else {
-    View.setStatus(`Analisando ${city.name} via fallback por cidade. Selecione um mercado do Polymarket para usar a entrada principal.`);
+    View.setStatus(`Abrindo a analise de ${city.name} via fallback por cidade...`);
   }
 
   try {
@@ -954,10 +967,12 @@ async function loadCity(city) {
     const weatherAnalysis = AnalysisEngine.buildWeatherAnalysis(weatherBundle);
     city.currentText = weatherBundle.current != null ? `${Math.round(weatherBundle.current)}°C` : "—";
     View.renderWeather(city, weatherAnalysis);
+    View.setStatus(selectedMarket ? `Clima de suporte carregado. Cruzando mercado e forecast para ${city.name}...` : `Clima e historico carregados para ${city.name}. Buscando mercados relacionados...`);
 
     const [markets, errorStats] = await Promise.all([MarketProvider.fetchByCity(city), WeatherProvider.fetchModelError(city)]);
     const marketAnalysis = AnalysisEngine.buildMarketAnalysis(markets, weatherAnalysis.modelData, errorStats, city.name, selectedMarket);
     View.renderMarket(city, marketAnalysis);
+    View.setStatus(selectedMarket ? `Analise pronta para o contrato ${selectedMarket.question || "selecionado"}.` : `Analise pronta para ${city.name}.`);
   } catch (error) {
     console.error("Error loading city data:", error);
     const tempEl = document.getElementById(`temp-${city.id}`);
@@ -966,7 +981,11 @@ async function loadCity(city) {
     const confidenceSummaryEl = document.getElementById(`confidence-summary-${city.id}`);
     if (weatherSummaryEl) weatherSummaryEl.textContent = "Falha ao carregar previsoes e historico.";
     if (confidenceSummaryEl) confidenceSummaryEl.textContent = "Leitura indisponivel.";
+    const polyEl = document.getElementById(`poly-${city.id}`);
+    if (polyEl) polyEl.innerHTML = '<div class="poly-none">Falha ao carregar a leitura do contrato.</div>';
     View.setStatus(`Falha ao carregar a analise de ${city.name}.`);
+  } finally {
+    View.setAnalysisBusy(false);
   }
 }
 
@@ -1043,22 +1062,29 @@ function renderMarketSuggestions(markets) {
 }
 
 async function fetchMarkets(query = "") {
+  View.renderDropdownMessage(DOM.marketDropdown, query ? "Buscando mercados..." : "Carregando mercados em destaque...", "dropdown-loading");
   try {
     const results = await MarketProvider.listMarkets({ query, limit: 8 });
-    renderMarketSuggestions(Array.isArray(results) ? results : []);
-    return Array.isArray(results) ? results : [];
+    const items = Array.isArray(results) ? results : [];
+    if (!items.length) {
+      View.renderDropdownMessage(DOM.marketDropdown, "Nenhum mercado encontrado para essa busca.");
+      return [];
+    }
+    renderMarketSuggestions(items);
+    return items;
   } catch (error) {
     console.error("Market search error:", error);
-    DOM.marketDropdown.style.display = "none";
+    View.renderDropdownMessage(DOM.marketDropdown, "Falha ao buscar mercados agora. Tente novamente.");
     return [];
   }
 }
 
 async function fetchCities(query) {
+  View.renderDropdownMessage(DOM.dropdown, "Buscando cidades...", "dropdown-loading");
   try {
     const results = await WeatherProvider.searchCities(query);
     if (!results.length) {
-      DOM.dropdown.style.display = "none";
+      View.renderDropdownMessage(DOM.dropdown, "Nenhuma cidade encontrada para essa busca.");
       return;
     }
     DOM.dropdown.innerHTML = "";
@@ -1083,12 +1109,15 @@ async function fetchCities(query) {
     DOM.dropdown.style.display = "block";
   } catch (error) {
     console.error("Geocoding error:", error);
+    View.renderDropdownMessage(DOM.dropdown, "Falha ao buscar cidades agora. Tente novamente.");
   }
 }
 
 async function setActiveMarket(market) {
+  View.setAnalysisBusy(true);
   const city = await resolveCityForMarket(market);
   if (!city) {
+    View.setAnalysisBusy(false);
     View.setStatus("Nao foi possivel resolver a cidade base do contrato selecionado.");
     return;
   }
