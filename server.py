@@ -3,13 +3,8 @@
 Weather Intelligence Dashboard - local server with Polymarket-backed data.
 Scrapes the public weather predictions page and exposes a small local API.
 """
-from __future__ import annotations
-
-import argparse
-import asyncio
 import http.server
 import json
-import logging
 import os
 import re
 import sys
@@ -22,12 +17,8 @@ PORT = 8090
 BIND = "127.0.0.1"
 DASHBOARD_DIR = os.path.dirname(os.path.abspath(__file__))
 
-_cache: dict[str, Any] = {"data": None, "ts": 0.0, "ttl": 300}
-_control_lock = threading.Lock()
-_control_logs: list[str] = []
-_control_tasks: dict[str, dict[str, Any]] = {}
-_task_seq = 0
-_monitor_proc: subprocess.Popen[str] | None = None
+# Cache
+_cache = {"data": None, "ts": 0, "ttl": 300}
 
 
 def fold_text(value):
@@ -234,7 +225,8 @@ def fetch_polymarket_weather():
 
     _cache["data"] = result
     _cache["ts"] = now
-    return data
+    print(f"[Polymarket] Cached {len(result)} weather events", flush=True)
+    return result
 
 
 def match_city_events(events, query):
@@ -340,45 +332,8 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
 
         super().do_GET()
 
-    def do_POST(self):
-        parsed = urllib.parse.urlparse(self.path)
-        path = parsed.path.rstrip("/") or "/"
-        body = self._read_json_body()
-
-        if path == "/api/control/monitor/start":
-            ok, msg = _start_monitor_process()
-            self.send_json({"ok": ok, "message": msg, "status": _control_status()})
-            return
-
-        if path == "/api/control/monitor/stop":
-            ok, msg = _stop_monitor_process()
-            self.send_json({"ok": ok, "message": msg, "status": _control_status()})
-            return
-
-        if path == "/api/control/monitor/once":
-            task_id = _start_task("monitor_once", ["monitor", "--once"])
-            self.send_json({"ok": True, "task_id": task_id, "status": _control_status()})
-            return
-        if path in ("/api/control/monitor/once/relaxed", "/api/control/monitor/relaxed"):
-            task_id = _start_task("monitor_once_relaxed", ["monitor", "--once", "--relaxed-risk"])
-            self.send_json({"ok": True, "task_id": task_id, "status": _control_status()})
-            return
-
-        if path == "/api/control/validate":
-            days = int(body.get("days", 730))
-            train_ratio = float(body.get("train_ratio", 0.7))
-            apply_best = bool(body.get("apply_best", False))
-            args = ["validate", "--days", str(max(365, days)), "--train-ratio", str(max(0.5, min(0.9, train_ratio)))]
-            if apply_best:
-                args.append("--apply-best")
-            task_id = _start_task("validate", args)
-            self.send_json({"ok": True, "task_id": task_id, "status": _control_status()})
-            return
-
-        self.send_json({"ok": False, "error": "Unknown control endpoint"}, status=404)
-
-    def send_json(self, data: Any, status: int = 200):
-        body = json.dumps(data).encode("utf-8")
+    def send_json(self, data, status=200):
+        body = json.dumps(data).encode()
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Access-Control-Allow-Origin", "*")
@@ -386,170 +341,16 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def log_message(self, format: str, *args):
+    def log_message(self, format, *args):
         pass
 
-    def _read_json_body(self) -> dict[str, Any]:
-        try:
-            length = int(self.headers.get("Content-Length", "0"))
-        except ValueError:
-            length = 0
-        if length <= 0:
-            return {}
-        raw = self.rfile.read(length).decode("utf-8", errors="replace")
-        try:
-            data = json.loads(raw)
-            return data if isinstance(data, dict) else {}
-        except json.JSONDecodeError:
-            return {}
 
-
-def run_web(bind: str, port: int) -> None:
+if __name__ == "__main__":
+    bind = sys.argv[1] if len(sys.argv) > 1 else BIND
+    port = int(sys.argv[2]) if len(sys.argv) > 2 else PORT
     print(f"Dashboard: http://{bind}:{port}/dashboard.html", flush=True)
     server = http.server.HTTPServer((bind, port), DashboardHandler)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
         print("\nStopped.")
-
-
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Polymarket weather orchestrator")
-    sub = parser.add_subparsers(dest="mode")
-
-    mon = sub.add_parser("monitor", help="Run monitoring loop")
-    mon.add_argument("--once", action="store_true", help="Run one cycle and exit")
-    mon.add_argument(
-        "--relaxed-risk",
-        action="store_true",
-        help="Relax filters to inspect more candidates (best with --once)",
-    )
-
-    web = sub.add_parser("web", help="Run dashboard HTTP server")
-    web.add_argument("--bind", default=DEFAULT_BIND)
-    web.add_argument("--port", type=int, default=DEFAULT_PORT)
-
-    cal = sub.add_parser("calibrate", help="Calibrate trading thresholds from historical data")
-    cal.add_argument("--days", type=int, default=365)
-    cal.add_argument("--apply", action="store_true", help="Persist best params into config.py")
-
-    val = sub.add_parser("validate", help="Out-of-sample temporal validation")
-    val.add_argument("--days", type=int, default=730)
-    val.add_argument("--train-ratio", type=float, default=0.7)
-    val.add_argument("--apply-best", action="store_true", help="Apply train-selected params after validation")
-
-    aud = sub.add_parser("audit", help="Statistical audit first, then market comparison")
-    aud.add_argument("--days", type=int, default=730)
-    aud.add_argument("--train-ratio", type=float, default=0.7)
-
-    parser.set_defaults(mode="monitor")
-    return parser.parse_args()
-
-
-def apply_calibration_to_config(best) -> None:
-    path = os.path.join(DASHBOARD_DIR, "config.py")
-    with open(path, "r", encoding="utf-8") as f:
-        text = f.read()
-
-    def _replace(name: str, value: str) -> str:
-        import re
-        pattern = rf"^{name}\s*=\s*.*$"
-        repl = f"{name} = {value}"
-        return re.sub(pattern, repl, text, flags=re.MULTILINE)
-
-    updated = text
-    for name, value in [
-        ("SAFETY_MARGIN_C", f"{best.safety_margin_c:.2f}"),
-        ("MIN_EDGE_TO_TRADE", f"{best.min_edge_to_trade:.2f}"),
-        ("KELLY_FRACTION", f"{best.kelly_fraction:.2f}"),
-    ]:
-        import re
-        pattern = rf"^{name}\s*=\s*.*$"
-        repl = f"{name} = {value}"
-        updated = re.sub(pattern, repl, updated, flags=re.MULTILINE)
-
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(updated)
-
-
-if __name__ == "__main__":
-    args = parse_args()
-    if args.mode == "web":
-        run_web(bind=args.bind, port=args.port)
-    elif args.mode == "calibrate":
-        best = calibrate_parameters(days=max(180, int(args.days)))
-        if not best:
-            print("Calibration failed: insufficient historical data.")
-            raise SystemExit(1)
-        print(
-            "Best params | "
-            f"SAFETY_MARGIN_C={best.safety_margin_c:.2f} "
-            f"MIN_EDGE_TO_TRADE={best.min_edge_to_trade:.2f} "
-            f"KELLY_FRACTION={best.kelly_fraction:.2f} | "
-            f"precision={best.metrics.precision:.3f} recall={best.metrics.recall:.3f} trades={best.metrics.trade_count}"
-        )
-        if getattr(args, "apply", False):
-            apply_calibration_to_config(best)
-            print("Applied calibrated params to config.py")
-    elif args.mode == "validate":
-        report = validate_oos(days=max(365, int(args.days)), train_ratio=max(0.5, min(0.9, float(args.train_ratio))))
-        if not report:
-            print("Validation failed: insufficient historical data.")
-            raise SystemExit(1)
-        bp = report.best_params
-        print(
-            "Best(train) params | "
-            f"SAFETY_MARGIN_C={bp.safety_margin_c:.2f} "
-            f"MIN_EDGE_TO_TRADE={bp.min_edge_to_trade:.2f} "
-            f"KELLY_FRACTION={bp.kelly_fraction:.2f}"
-        )
-        print(
-            "Train metrics | "
-            f"precision={report.train_metrics.precision:.3f} "
-            f"recall={report.train_metrics.recall:.3f} "
-            f"trades={report.train_metrics.trade_count}"
-        )
-        print(
-            "Test metrics (OOS) | "
-            f"precision={report.test_metrics.precision:.3f} "
-            f"recall={report.test_metrics.recall:.3f} "
-            f"trades={report.test_metrics.trade_count}"
-        )
-        print(
-            "Walk-forward metrics | "
-            f"precision={report.walk_forward_metrics.precision:.3f} "
-            f"recall={report.walk_forward_metrics.recall:.3f} "
-            f"trades={report.walk_forward_metrics.trade_count}"
-        )
-        if getattr(args, "apply_best", False):
-            apply_calibration_to_config(bp)
-            print("Applied train-selected params to config.py")
-    elif args.mode == "audit":
-        report = run_statistical_audit(days=max(365, int(args.days)), train_ratio=max(0.55, min(0.9, float(args.train_ratio))))
-        print(
-            f"Audit | days={report.days} train_ratio={report.train_ratio:.2f} "
-            f"reliable={report.summary['reliable_cities']}/{report.summary['total_cities']}"
-        )
-        print(report.summary["north"])
-        print("-" * 118)
-        print(
-            f"{'City':22} {'Rel':4} {'MAE(test)':>10} {'RMSE(test)':>11} {'Brier':>8} "
-            f"{'Cov90':>8} {'TempNow':>9} {'PM_Impl':>9} {'EdgeC':>8}"
-        )
-        print("-" * 118)
-        for c in report.cities:
-            temp_now = "n/a" if c.current_estimated_max_c is None else f"{c.current_estimated_max_c:.1f}"
-            pm_imp = "n/a" if c.polymarket_implied_c is None else f"{c.polymarket_implied_c:.1f}"
-            edge = "n/a" if c.current_edge_c is None else f"{c.current_edge_c:+.1f}"
-            print(
-                f"{c.city_key:22} {('yes' if c.model_reliable else 'no'):4} "
-                f"{c.test_mae_c:10.2f} {c.test_rmse_c:11.2f} {c.test_brier:8.3f} "
-                f"{c.interval90_coverage:8.2f} {temp_now:>9} {pm_imp:>9} {edge:>8}"
-            )
-        print("-" * 118)
-        print(f"ready_for_market_step={report.summary['ready_for_market_step']}")
-    else:
-        run_monitor_loop(
-            once=bool(getattr(args, "once", False)),
-            relaxed_risk=bool(getattr(args, "relaxed_risk", False)),
-        )

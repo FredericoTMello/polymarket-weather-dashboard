@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8" />
@@ -67,31 +67,6 @@
     /* Tags */
     .tags{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px}
     .tag{padding:8px 12px;border-radius:999px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.07);font-size:12px;color:#cad7df}
-
-    /* Control panel */
-    .control-panel{margin-bottom:18px;padding:14px;border-radius:12px;background:rgba(139,92,246,0.08);border:1px solid rgba(139,92,246,0.22)}
-    .control-title{font-size:14px;font-weight:700;color:var(--accent);margin-bottom:10px}
-    .control-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-bottom:10px}
-    .control-item{background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:10px;padding:10px}
-    .control-item h4{font-size:13px;margin-bottom:5px}
-    .control-item p{font-size:11px;color:var(--muted);line-height:1.4;min-height:34px;margin-bottom:8px}
-    .control-item button{width:100%;padding:8px 10px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-size:12px;font-weight:600;cursor:pointer}
-    .control-item button:hover{opacity:0.9}
-    .control-item button.stop-btn{background:#374151}
-    .control-status{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12px;margin-bottom:8px}
-    .control-badge{padding:5px 10px;border-radius:999px;font-weight:700}
-    .badge-on{background:rgba(34,197,94,0.14);color:var(--green)}
-    .badge-off{background:rgba(239,68,68,0.14);color:var(--hot)}
-    .control-meta{color:var(--muted)}
-    .control-tasks,.control-logs{background:rgba(0,0,0,0.25);border:1px solid var(--border);border-radius:8px;padding:8px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;max-height:140px;overflow:auto}
-    .control-tasks{margin-bottom:8px}
-    .control-empty{color:rgba(156,163,175,0.7);font-style:italic}
-    .control-details{margin-top:8px}
-    .control-details summary{cursor:pointer;color:var(--muted);font-size:12px}
-    .control-details[open] summary{margin-bottom:6px}
-    .quick-guide{margin-bottom:12px;padding:10px 12px;border-radius:10px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.18)}
-    .quick-guide-title{font-size:13px;font-weight:700;color:var(--green);margin-bottom:4px}
-    .quick-guide-text{font-size:12px;color:#d1d5db;line-height:1.45}
 
     /* Cards */
     .analysis-status{margin:0 0 16px;padding:14px 16px;border:1px solid rgba(77,208,225,0.18);border-radius:18px;background:linear-gradient(180deg,rgba(77,208,225,0.08),rgba(77,208,225,0.04));color:#d8f6fb;font-size:13px;line-height:1.5}
@@ -280,9 +255,9 @@
 
   <!-- Favorites -->
   <div class="fav-section">
-    <div class="fav-label">Cidades favoritas</div>
+    <div class="fav-label">⭐ Cidades favoritas</div>
     <div class="fav-chips" id="favChips">
-      <div class="fav-empty" id="favEmpty">Nenhuma favorita ainda - clique na estrela do card para salvar</div>
+      <div class="fav-empty" id="favEmpty">Nenhuma favorita ainda — clique ⭐ no card para salvar</div>
     </div>
   </div>
 
@@ -311,70 +286,9 @@
   </section>
 
   <div class="tags">
-    <div class="tag">Estacoes: London City · LaGuardia · Incheon (+ busca)</div>
-    <div class="tag">Modelos: NOAA GFS · ECMWF IFS · UKMO</div>
-    <div class="tag">Sigma floor: 1.5°C (conservador)</div>
-  </div>
-
-  <div class="control-panel">
-    <div class="control-title">Central de Controle</div>
-    <div class="quick-guide">
-      <div class="quick-guide-title">Como ler rápido</div>
-      <div class="quick-guide-text">
-        1) Rode <strong>Monitor (1 ciclo - relaxado)</strong> para ver candidatos.<br>
-        2) Se aparecer edge consistente, use <strong>Monitor contínuo</strong>.<br>
-        3) Use <strong>Validar OOS</strong> para confirmar robustez antes de aumentar exposição.
-      </div>
-    </div>
-    <div class="control-status">
-      <div id="monitorBadge" class="control-badge badge-off">Monitor: OFF</div>
-      <div class="control-meta" id="controlMeta">Atualizando status...</div>
-    </div>
-    <div class="control-grid">
-      <div class="control-item">
-        <h4>Validar OOS</h4>
-        <p>Roda validação fora-da-amostra com split temporal e walk-forward para medir robustez real.</p>
-        <button id="btnValidate">Executar validação</button>
-      </div>
-      <div class="control-item">
-        <h4>Validar + Aplicar</h4>
-        <p>Executa validação e grava os melhores parâmetros no config para uso imediato no monitor.</p>
-        <button id="btnValidateApply">Validar e aplicar</button>
-      </div>
-      <div class="control-item">
-        <h4>Monitor (1 ciclo)</h4>
-        <p>Varredura padrão, com filtros mais rígidos de risco e qualidade dos dados.</p>
-        <button id="btnMonitorOnce">Rodar 1 ciclo</button>
-      </div>
-      <div class="control-item">
-        <h4>Monitor (1 ciclo - relaxado)</h4>
-        <p>Mostra mais candidatos reduzindo filtros de risco somente neste ciclo de inspeção.</p>
-        <button id="btnMonitorOnceRelaxed">Rodar ciclo relaxado</button>
-      </div>
-      <div class="control-item">
-        <h4>Monitor contínuo</h4>
-        <p>Inicia loop contínuo para escanear mercados em intervalo fixo, ideal para uso operacional.</p>
-        <button id="btnMonitorStart">Iniciar monitor</button>
-      </div>
-      <div class="control-item">
-        <h4>Parar monitor</h4>
-        <p>Interrompe o loop contínuo em execução para evitar sinais duplicados e liberar recursos.</p>
-        <button id="btnMonitorStop" class="stop-btn">Parar monitor</button>
-      </div>
-      <div class="control-item">
-        <h4>Atualizar status</h4>
-        <p>Atualiza o estado atual das tarefas e do monitor. O painel também atualiza automaticamente.</p>
-        <button id="btnRefreshControl" class="stop-btn">Atualizar agora</button>
-      </div>
-    </div>
-    <details class="control-details">
-      <summary>Tarefas recentes</summary>
-      <div class="control-tasks" id="controlTasks"><div class="control-empty">Sem tarefas recentes.</div></div>
-    </details>
-    <details class="control-details">
-      <summary>Logs técnicos</summary>
-      <div class="control-logs" id="controlLogs"><div class="control-empty">Sem logs de controle.</div></div>
-    </details>
+    <div class="tag">Estações: Heathrow · JFK · Haneda (+ busca)</div>
+    <div class="tag">Modelos: NOAA GFS · ECMWF IFS · UKMO (single fetch)</div>
+    <div class="tag">σ floor: 1.5°C (conservador)</div>
   </div>
 
   <div id="analysisStatus" class="analysis-status">Selecione um mercado do Polymarket para abrir a analise principal. A busca por cidade continua disponivel como fallback temporario.</div>
@@ -385,7 +299,7 @@
     <a href="https://open-meteo.com/" target="_blank">Open-Meteo</a> (Forecast + Historical + Geocoding) ·
     <a href="https://open-meteo.com/en/docs/gfs-api" target="_blank">NOAA GFS</a> (via Open-Meteo) ·
     <a href="https://open-meteo.com/en/docs/ecmwf-api" target="_blank">Copernicus/ECMWF</a> (via Open-Meteo)<br>
-    Todas as APIs sao gratuitas e sem necessidade de cadastro.
+    Todas as APIs são gratuitas e sem necessidade de cadastro.
   </footer>
 </div>
 
@@ -396,14 +310,14 @@ const cities = [];
 const charts = {};
 const STORAGE_KEY = 'polymarket_weather_favs';
 
-// â”€â”€â”€ Market Stations (Airport-based, matching Polymarket resolution) â”€â”€â”€
+// ─── Market Stations (Airport-based, matching Polymarket resolution) ───
 const MARKET_STATIONS = [
-  { id: "london", name: "London (City)", country: "United Kingdom", region: "England", lat: 51.5053, lon: -0.0553, station_id: "EGLC", timezone: "Europe/London" },
-  { id: "new_york", name: "New York (LaGuardia)", country: "United States", region: "New York", lat: 40.7769, lon: -73.8740, station_id: "KLGA", timezone: "America/New_York" },
-  { id: "seoul", name: "Seoul (Incheon)", country: "South Korea", region: "Seoul", lat: 37.4602, lon: 126.4407, station_id: "RKSI", timezone: "Asia/Seoul" }
+  { id: "london", name: "London (Heathrow)", country: "United Kingdom", region: "England", lat: 51.4700, lon: -0.4543, station_id: "EGLL", timezone: "Europe/London" },
+  { id: "new_york", name: "New York (JFK)", country: "United States", region: "New York", lat: 40.6413, lon: -73.7781, station_id: "KJFK", timezone: "America/New_York" },
+  { id: "tokyo", name: "Tokyo (Haneda)", country: "Japan", region: "Tokyo", lat: 35.5494, lon: 139.7798, station_id: "RJTT", timezone: "Asia/Tokyo" }
 ];
 
-// â”€â”€â”€ Model Configuration â”€â”€â”€
+// ─── Model Configuration ───
 // SPEC: Dynamic sigma calculation - no fixed floor
 const FORECAST_MODELS = ['gfs_seamless', 'ecmwf_ifs025', 'ukmo_seamless'];
 const MODEL_LABELS = { gfs_seamless: 'NOAA GFS', ecmwf_ifs025: 'ECMWF IFS', ukmo_seamless: 'UKMO' };
@@ -411,7 +325,7 @@ const MODEL_COLORS = { gfs_seamless: '#22c55e', ecmwf_ifs025: '#3b82f6', ukmo_se
 // SPEC: Horizon penalty coefficient (calibrated via backtest)
 const HORIZON_PENALTY_K = 0.05;
 
-// â”€â”€â”€ Favorites (localStorage) â”€â”€â”€
+// ─── Favorites (localStorage) ───
 function loadFavorites() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
   catch { return []; }
@@ -444,14 +358,14 @@ function renderFavorites() {
     const empty = document.createElement('div');
     empty.className = 'fav-empty';
     empty.id = 'favEmpty';
-    empty.textContent = 'Nenhuma favorita ainda - clique na estrela do card para salvar';
+    empty.textContent = 'Nenhuma favorita ainda — clique ⭐ no card para salvar';
     container.appendChild(empty);
     return;
   }
   favs.forEach(f => {
     const chip = document.createElement('div');
     chip.className = 'fav-chip';
-    chip.innerHTML = `★ ${esc(f.name)} <span class="fav-x" title="Remover favorito">✖</span>`;
+    chip.innerHTML = `⭐ ${esc(f.name)} <span class="fav-x" title="Remover favorito">✕</span>`;
     chip.addEventListener('click', (e) => {
       if (e.target.classList.contains('fav-x')) {
         toggleFavorite(f);
@@ -470,20 +384,14 @@ function renderFavorites() {
   });
 }
 
-// â”€â”€â”€ API Endpoints (SINGLE FETCH for all models) â”€â”€â”€
+// ─── API Endpoints (SINGLE FETCH for all models) ───
 const API = {
   geocode: (q) => `/api/geocode?q=${encodeURIComponent(q)}`,
   multiModel: (lat, lon) => `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=temperature_2m_max,temperature_2m_min&current_weather=true&timezone=auto&forecast_days=14&temperature_unit=celsius&models=${FORECAST_MODELS.join(',')}`,
-  historical: (lat, lon, start, end) => `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${start}&end_date=${end}&daily=temperature_2m_mean&timezone=auto&temperature_unit=celsius`,
-  controlStatus: () => '/api/control/status',
-  controlValidate: () => '/api/control/validate',
-  controlMonitorStart: () => '/api/control/monitor/start',
-  controlMonitorStop: () => '/api/control/monitor/stop',
-  controlMonitorOnce: () => '/api/control/monitor/once',
-  controlMonitorOnceRelaxed: () => '/api/control/monitor/once/relaxed'
+  historical: (lat, lon, start, end) => `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${start}&end_date=${end}&daily=temperature_2m_mean&timezone=auto&temperature_unit=celsius`
 };
 
-// â”€â”€â”€ DOM â”€â”€â”€
+// ─── DOM ───
 const input = document.getElementById('cityInput');
 const dropdown = document.getElementById('dropdown');
 const addBtn = document.getElementById('addBtn');
@@ -493,7 +401,7 @@ const statusEl = document.getElementById('analysisStatus');
 let selectedCity = null;
 let searchTimeout = null;
 
-// â”€â”€â”€ Search â”€â”€â”€
+// ─── Search ───
 input.addEventListener('input', () => {
   const q = input.value.trim();
   if (searchTimeout) clearTimeout(searchTimeout);
@@ -526,64 +434,7 @@ async function fetchCities(q) {
   } catch (err) { console.error('Geocoding error:', err); }
 }
 
-async function runControlValidate(applyBest) {
-  await runControlPost(API.controlValidate(), { days: 730, train_ratio: 0.7, apply_best: !!applyBest });
-}
-
-async function runControlPost(url, payload = {}) {
-  try {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    const data = await res.json();
-    if (!res.ok || data.error) throw new Error(data.error || 'Control request failed');
-    await refreshControlStatus();
-  } catch (err) {
-    console.warn('Control action failed:', err);
-    controlMetaEl.textContent = 'Erro no controle: ' + String(err.message || err);
-  }
-}
-
-function renderControlTasks(tasks) {
-  if (!tasks || !tasks.length) {
-    controlTasksEl.innerHTML = '<div class="control-empty">Sem tarefas recentes.</div>';
-    return;
-  }
-  const rows = tasks.slice(-12).reverse().map(t => {
-    const code = (t.exit_code == null) ? '' : ` (exit=${t.exit_code})`;
-    return `<div>[${esc(t.name)}] ${esc(t.status)}${esc(code)}</div>`;
-  });
-  controlTasksEl.innerHTML = rows.join('');
-}
-
-function renderControlLogs(logs) {
-  if (!logs || !logs.length) {
-    controlLogsEl.innerHTML = '<div class="control-empty">Sem logs de controle.</div>';
-    return;
-  }
-  controlLogsEl.innerHTML = logs.slice(-35).map(l => `<div>${esc(l)}</div>`).join('');
-  controlLogsEl.scrollTop = controlLogsEl.scrollHeight;
-}
-
-async function refreshControlStatus() {
-  try {
-    const res = await fetch(API.controlStatus());
-    const data = await res.json();
-    const on = !!data.monitor_running;
-    monitorBadgeEl.className = 'control-badge ' + (on ? 'badge-on' : 'badge-off');
-    monitorBadgeEl.textContent = on ? 'Monitor: ON' : 'Monitor: OFF';
-    const taskCount = (data.tasks || []).filter(t => t.status === 'running').length;
-    controlMetaEl.textContent = `Tarefas em execução: ${taskCount}`;
-    renderControlTasks(data.tasks || []);
-    renderControlLogs(data.logs || []);
-  } catch (err) {
-    controlMetaEl.textContent = 'Falha ao carregar status do controle.';
-  }
-}
-
-// â”€â”€â”€ Add / Remove â”€â”€â”€
+// ─── Add / Remove ───
 addBtn.addEventListener('click', addCity);
 
 function setStatus(message) {
@@ -627,7 +478,7 @@ function removeCity(id) {
   if (el) el.remove();
 }
 
-// â”€â”€â”€ Render Card â”€â”€â”€
+// ─── Render Card ───
 function renderCard(city) {
   const isFav = isFavorite(city.name, city.lat, city.lon);
   const card = document.createElement('div');
@@ -640,8 +491,8 @@ function renderCard(city) {
         <div class="city-country">${esc([city.region, city.country].filter(Boolean).join(', '))} · ${city.lat.toFixed(2)}°, ${city.lon.toFixed(2)}°</div>
       </div>
       <div class="card-btns">
-        <button class="btn-fav${isFav ? ' is-fav' : ''}" onclick="toggleFavorite({name:'${esc(city.name)}',country:'${esc(city.country)}',region:'${esc(city.region)}',lat:${city.lat},lon:${city.lon}})" title="Favoritar">★</button>
-        <button class="btn-remove" onclick="removeCity('${city.id}')" title="Remover">✖</button>
+        <button class="btn-fav${isFav ? ' is-fav' : ''}" onclick="toggleFavorite({name:'${esc(city.name)}',country:'${esc(city.country)}',region:'${esc(city.region)}',lat:${city.lat},lon:${city.lon}})" title="Favoritar">⭐</button>
+        <button class="btn-remove" onclick="removeCity('${city.id}')" title="Remover">✕</button>
       </div>
     </div>
     <div class="current-temp" id="temp-${city.id}">carregando...</div>
@@ -762,11 +613,11 @@ async function loadCityData(city) {
       };
     }
 
-    // â”€â”€ Current temperature â”€â”€
+    // ── Current temperature ──
     const current = multi?.current_weather?.temperature;
     tempEl.textContent = current != null ? `${Math.round(current)}°C` : '—';
 
-    // â”€â”€ Today stats per model â”€â”€
+    // ── Today stats per model ──
     const todayMaxes = [];
     const todayMins = [];
     let statsHTML = '';
@@ -781,7 +632,7 @@ async function loadCityData(city) {
     const avgMin = todayMins.length ? todayMins.reduce((a, b) => a + b, 0) / todayMins.length : null;
     statsEl.innerHTML = `<div class="stat">Máx: ${fmt(avgMax)}</div><div class="stat">Mín: ${fmt(avgMin)}</div>` + statsHTML;
 
-    // â”€â”€ Historical monthly mean â”€â”€
+    // ── Historical monthly mean ──
     let histMean = null;
     if (hist?.daily?.time && hist?.daily?.temperature_2m_mean) {
       const temps = [];
@@ -795,46 +646,46 @@ async function loadCityData(city) {
       if (temps.length) histMean = temps.reduce((a, b) => a + b, 0) / temps.length;
     }
 
-    // â”€â”€ Model means for insights â”€â”€
+    // ── Model means for insights ──
     const modelMeans = FORECAST_MODELS.map(m => {
       const mx = perModel[m].max[0];
       const mn = perModel[m].min[0];
       return (mx != null && mn != null) ? (mx + mn) / 2 : null;
     }).filter(v => v != null);
 
-    // â”€â”€ INSIGHT 1: Anomaly â”€â”€
+    // ── INSIGHT 1: Anomaly ──
     let anomalyHTML = '';
     if (current != null && histMean != null) {
       const anom = current - histMean;
       const sign = anom > 0 ? '+' : '';
       const cls = anom > 0 ? 'anomaly-hot' : 'anomaly-cold';
-      anomalyHTML = `<div class="anomaly-badge ${cls}">Anomalia: ${sign}${anom.toFixed(1)}°C vs media hist. (${histMean.toFixed(1)}°C)</div>`;
+      anomalyHTML = `<div class="anomaly-badge ${cls}">Anomalia: ${sign}${anom.toFixed(1)}°C vs média hist. (${histMean.toFixed(1)}°C)</div>`;
     }
 
-    // â”€â”€ INSIGHT 2: Model divergence â”€â”€
+    // ── INSIGHT 2: Model divergence ──
     let divergenceHTML = '';
     if (modelMeans.length >= 2) {
       const div = Math.max(...modelMeans) - Math.min(...modelMeans);
       if (div >= 3) {
-        divergenceHTML = `<div class="divergence-badge divergence-high">Modelos divergem em ${div.toFixed(1)}°C - oportunidade?</div>`;
+        divergenceHTML = `<div class="divergence-badge divergence-high">⚠️ Modelos divergem em ${div.toFixed(1)}°C — oportunidade?</div>`;
       } else if (div >= 1.5) {
-        divergenceHTML = `<div class="divergence-badge divergence-high">Divergencia moderada: ${div.toFixed(1)}°C entre modelos</div>`;
+        divergenceHTML = `<div class="divergence-badge divergence-high">📊 Divergência moderada: ${div.toFixed(1)}°C entre modelos</div>`;
       } else {
-        divergenceHTML = `<div class="divergence-badge divergence-low">Modelos alinhados (Δ ${div.toFixed(1)}°C)</div>`;
+        divergenceHTML = `<div class="divergence-badge divergence-low">✅ Modelos alinhados (Δ ${div.toFixed(1)}°C)</div>`;
       }
     }
 
-    // â”€â”€ INSIGHT 3: Consensus â”€â”€
+    // ── INSIGHT 3: Consensus ──
     let consensusHTML = '';
     if (histMean != null && modelMeans.length >= 2) {
       const above = modelMeans.filter(m => m > histMean).length;
       const total = modelMeans.length;
       if (above === total) {
-        consensusHTML = `<div class="consensus-badge consensus-all">${total}/${total} modelos acima da media</div>`;
+        consensusHTML = `<div class="consensus-badge consensus-all">🔥 ${total}/${total} modelos acima da média</div>`;
       } else if (above === 0) {
-        consensusHTML = `<div class="consensus-badge consensus-none">${total}/${total} modelos abaixo da media</div>`;
+        consensusHTML = `<div class="consensus-badge consensus-none">❄️ ${total}/${total} modelos abaixo da média</div>`;
       } else {
-        consensusHTML = `<div class="consensus-badge consensus-mixed">Modelos divididos (${above}/${total} acima)</div>`;
+        consensusHTML = `<div class="consensus-badge consensus-mixed">⚖️ Modelos divididos (${above}/${total} acima)</div>`;
       }
     }
 
@@ -853,7 +704,7 @@ async function loadCityData(city) {
           : `Modelos divergentes (Δ ${spread.toFixed(1)}°C)`;
     }
 
-    // â”€â”€ Chart: All models + historical baseline â”€â”€
+    // ── Chart: All models + historical baseline ──
     const labels = dates.map(d => d.slice(5));
     const datasets = FORECAST_MODELS.map(m => ({
       label: MODEL_LABELS[m],
@@ -911,7 +762,7 @@ async function loadCityData(city) {
       <tr><td class="src-name">Polymarket</td><td>Mercados de temperatura</td><td>polymarket.com/predictions/weather (proxy)</td></tr>
     `;
 
-    // â”€â”€ Polymarket integration (pass unified model data) â”€â”€
+    // ── Polymarket integration (pass unified model data) ──
     loadPolymarketData(city, {
       dates: dates,
       models: Object.fromEntries(FORECAST_MODELS.map(m => [m, { max: perModel[m].max }]))
@@ -926,14 +777,13 @@ async function loadCityData(city) {
   }
 }
 
-// â”€â”€â”€ Model Error / Probability Engine â”€â”€â”€
+// ─── Model Error / Probability Engine ───
 
 // Cache for historical error stats per city
 const errorCache = {};
 
 /**
- * Estimate uncertainty stats using the last 90 days of observed max temperatures.
- * This avoids look-ahead bias from retrospective forecast fields.
+ * Fetch last 30 days of model forecasts vs actuals.
  * Returns { bias, sigma, n } or null.
  */
 async function calcModelError(lat, lon) {
@@ -943,25 +793,38 @@ async function calcModelError(lat, lon) {
   try {
     const now = new Date();
     const end = now.toISOString().slice(0, 10);
-    const start90 = new Date(now - 90 * 86400000).toISOString().slice(0, 10);
-    const aUrl = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${start90}&end_date=${end}&daily=temperature_2m_max&timezone=auto`;
-    const aRes = await fetch(aUrl).then(r => r.json());
+    const start30 = new Date(now - 30 * 86400000).toISOString().slice(0, 10);
+
+    // Actual temps
+    const aUrl = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${start30}&end_date=${end}&daily=temperature_2m_max&timezone=auto`;
+    // Forecast model with past_days (what model said for those days)
+    const fUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&past_days=30&daily=temperature_2m_max&timezone=auto&forecast_days=1`;
+
+    const [aRes, fRes] = await Promise.all([
+      fetch(aUrl).then(r => r.json()),
+      fetch(fUrl).then(r => r.json())
+    ]);
+
+    const aDates = aRes.daily?.time || [];
     const aMax = aRes.daily?.temperature_2m_max || [];
+    const fDates = fRes.daily?.time || [];
+    const fMax = fRes.daily?.temperature_2m_max || [];
 
-    if (aMax.length < 8) { errorCache[key] = null; return null; }
-
-    const dailyDelta = [];
-    for (let i = 1; i < aMax.length; i++) {
-      if (aMax[i] != null && aMax[i - 1] != null) dailyDelta.push(aMax[i] - aMax[i - 1]);
+    const errors = [];
+    for (let i = 0; i < fDates.length; i++) {
+      const j = aDates.indexOf(fDates[i]);
+      if (j >= 0 && aMax[j] != null && fMax[i] != null) {
+        errors.push(fMax[i] - aMax[j]);
+      }
     }
-    if (dailyDelta.length < 5) { errorCache[key] = null; return null; }
 
-    const meanDelta = dailyDelta.reduce((a, b) => a + b, 0) / dailyDelta.length;
-    const variance = dailyDelta.reduce((a, e) => a + (e - meanDelta) ** 2, 0) / (dailyDelta.length - 1);
-    const sigmaProxy = Math.sqrt(variance);
-    const sigma = Math.max(1.5, sigmaProxy);
+    if (errors.length < 5) { errorCache[key] = null; return null; }
 
-    const result = { bias: 0, sigma, baseSigma: sigma, n: dailyDelta.length };
+    const mean = errors.reduce((a, b) => a + b, 0) / errors.length;
+    const variance = errors.reduce((a, e) => a + (e - mean) ** 2, 0) / (errors.length - 1);
+    const sigma = Math.sqrt(variance);
+
+    const result = { bias: mean, sigma, baseSigma: sigma, n: errors.length };
     errorCache[key] = result;
     return result;
   } catch (e) {
@@ -999,7 +862,7 @@ function probInRange(mu, sigma, lo, hi) {
  */
 /**
  * Parse outcome range into [lo, hi] in °C.
- * IMPORTANT: No Â±0.5 shift on "or higher"/"or below" boundaries.
+ * IMPORTANT: No ±0.5 shift on "or higher"/"or below" boundaries.
  * The contract resolves at the exact reported temperature.
  * Conservative interpretation avoids inflated edge estimates.
  */
@@ -1007,24 +870,24 @@ function parseRange(range) {
   const isF = range.includes('°F') || range.match(/\d+°?F/);
   const convert = (v) => isF ? fToC(v) : v;
 
-  // "X or below" / "X ou menos" â†’ (-âˆž, X]
+  // "X or below" / "X ou menos" → (-∞, X]
   let m = range.match(/([\d.-]+)\s*°?[FC]?\s*(?:or below|ou menos)/i);
   if (m) return { lo: -Infinity, hi: convert(parseFloat(m[1])) };
 
-  // "X or higher" / "ou mais" â†’ [X, +âˆž)
+  // "X or higher" / "ou mais" → [X, +∞)
   m = range.match(/([\d.-]+)\s*°?[FC]?\s*(?:or higher|ou mais)/i);
   if (m) return { lo: convert(parseFloat(m[1])), hi: Infinity };
 
-  // "X-Y" range â†’ [X, Y] - SPEC 5.2B: Closed interval, no artificial expansion
-  m = range.match(/([\d.-]+)\s*[-â€“]\s*([\d.-]+)/);
+  // "X-Y" range → [X, Y] - SPEC 5.2B: Closed interval, no artificial expansion
+  m = range.match(/([\d.-]+)\s*[-–]\s*([\d.-]+)/);
   if (m) {
     const lo = convert(parseFloat(m[1]));
     const hi = convert(parseFloat(m[2]));
-    // Closed interval: P(X â‰¤ T â‰¤ Y) - no Â±0.5
+    // Closed interval: P(X ≤ T ≤ Y) - no ±0.5
     return { lo: lo, hi: hi };
   }
 
-  // Single value "X°C" - SPEC 5.2A: P(X) = P(X-0.5 <= T < X+0.5)
+  // Single value "X°C" - SPEC 5.2A: P(X) = P(X-0.5 ≤ T < X+0.5)
   m = range.match(/([\d.-]+)\s*°?[FC]/);
   if (m) {
     const v = convert(parseFloat(m[1]));
@@ -1034,10 +897,10 @@ function parseRange(range) {
   return null;
 }
 
-// â”€â”€â”€ Polymarket â”€â”€â”€
+// ─── Polymarket ───
 
 // City name mappings (Polymarket uses English names)
-// Keys: what dashboard sends â†’ Values: what Polymarket API returns
+// Keys: what dashboard sends → Values: what Polymarket API returns
 const CITY_ALIASES = {
   // Portuguese names
   'londres': 'london', 'nova york': 'nyc', 'nova iorque': 'nyc',
@@ -1045,13 +908,13 @@ const CITY_ALIASES = {
   'milão': 'milan', 'munique': 'munich', 'moscou': 'moscow',
   'ancara': 'ankara',
   // Market stations (with airport codes)
-  'london (city)': 'london',
-  'new york (laguardia)': 'nyc',
-  'seoul (incheon)': 'seoul',
+  'london (heathrow)': 'london',
+  'new york (jfk)': 'nyc',
+  'tokyo (haneda)': 'tokyo',
   // Common variations
-  'new york': 'nyc', 'ny': 'nyc', 'laguardia': 'nyc', 'lga': 'nyc',
-  'london': 'london', 'london city': 'london',
-  'seoul': 'seoul', 'incheon': 'seoul',
+  'new york': 'nyc', 'ny': 'nyc', 'jfk': 'nyc',
+  'london': 'london', 'heathrow': 'london',
+  'tokyo': 'tokyo', 'haneda': 'tokyo',
   // Direct matches (Polymarket names)
   'buenos aires': 'buenos aires', 'são paulo': 'são paulo',
   'toronto': 'toronto', 'chicago': 'chicago', 'dallas': 'dallas',
@@ -1083,21 +946,15 @@ async function loadPolymarketData(city, modelData) {
     const monthNames = ['january','february','march','april','may','june','july','august','september','october','november','december'];
 
     let html = '<div class="poly-section">';
-    html += '<div class="poly-title">Polymarket - Analise de Edge</div>';
+    html += '<div class="poly-title">📈 Polymarket — Análise de Edge</div>';
 
     // Collect unique dates
-    const uniqueDates = [...new Set(marketRes.map(e => e.date).filter(Boolean))]
-      .sort((a, b) => {
-        const aParsed = parseMarketDate(a, monthNames);
-        const bParsed = parseMarketDate(b, monthNames);
-        if (aParsed && bParsed) return aParsed.localeCompare(bParsed);
-        return a.localeCompare(b);
-      });
+    const uniqueDates = [...new Set(marketRes.map(e => e.date).filter(Boolean))].sort();
     
     // Date filter dropdown (only if multiple dates)
     if (uniqueDates.length > 1) {
       html += '<div style="margin-bottom:10px">';
-      html += `<label style="font-size:12px;color:var(--muted);margin-right:8px">Data:</label>`;
+      html += `<label style="font-size:12px;color:var(--muted);margin-right:8px">📅 Data:</label>`;
       html += `<select class="date-filter" data-city="${city.id}" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:12px">`;
       html += `<option value="">Todas</option>`;
       uniqueDates.forEach(d => {
@@ -1110,25 +967,28 @@ async function loadPolymarketData(city, modelData) {
     // Show error stats
     if (errorStats) {
       html += `<div style="font-size:11px;color:var(--muted);margin-bottom:8px;padding:4px 8px;background:rgba(255,255,255,0.02);border-radius:6px">`;
-      html += `Incerteza (proxy 90d): bias=${errorStats.bias > 0 ? '+' : ''}${errorStats.bias.toFixed(2)}°C · sigma=${errorStats.sigma.toFixed(2)}°C · n=${errorStats.n}`;
+      html += `📊 Erro do modelo (30d): bias=${errorStats.bias > 0 ? '+' : ''}${errorStats.bias.toFixed(2)}°C · σ=${errorStats.sigma.toFixed(2)}°C · n=${errorStats.n}`;
       html += `</div>`;
     }
 
     for (const event of marketRes) {
-      const q = event.title || event.question || '';
+      const q = event.question || '';
       const outcomes = event.outcomes || [];
       const dateStr = event.date || '';
+      const dateParts = dateStr.toLowerCase().split(/\s+/);
 
-      // Skip markets with no actionable prices or clearly resolved books.
-      const probs = outcomes.map(o => Number(o.probability)).filter(p => Number.isFinite(p));
-      const allZero = !probs.length || probs.every(p => p <= 0);
-      const nearResolved = probs.length > 1 && Math.max(...probs) >= 0.995;
-      if (allZero || nearResolved) continue;
+      // Skip markets that are already resolved (all outcomes 0% or one at 100%)
+      const allZero = outcomes.every(o => o.probability < 0.01);
+      const oneHundred = outcomes.some(o => o.probability > 0.99);
+      if (allZero || oneHundred) {
+        continue; // Market already resolved, skip
+      }
 
       html += '<div class="poly-market" data-date="' + esc(dateStr) + '">';
       html += `<div class="poly-question">${esc(q)}</div>`;
 
       // Find model prediction for this date (unified format)
+      // SPEC 2.1: Validate market rule and set confidence
       let avgPredC = null;
       let modelSpread = null;
       let marketRuleConfidence = 'LOW';
@@ -1188,7 +1048,7 @@ async function loadPolymarketData(city, modelData) {
         const mu = avgPredC - errorStats.bias;
         
         // Dynamic sigma calculation - SPEC 4.3
-        // sigma_final = sqrt(Ïƒ_histÂ² + Ïƒ_model_dispÂ² + Ïƒ_horizon_penaltyÂ²)
+        // sigma_final = sqrt(σ_hist² + σ_model_disp² + σ_horizon_penalty²)
         const sigmaHorizonPenalty = errorStats.baseSigma * horizonDays * HORIZON_PENALTY_K;
         const sigmaFinal = Math.sqrt(
           Math.pow(errorStats.sigma, 2) + 
@@ -1218,16 +1078,16 @@ async function loadPolymarketData(city, modelData) {
           let signal = '';
           let rowClass = '';
           if (edge >= 0.10) {
-            signal = 'EDGE';
+            signal = '🟢 EDGE';
             rowClass = 'edge-row-green';
           } else if (edge >= 0.05) {
-            signal = 'fraco';
+            signal = '🟡 fraco';
             rowClass = 'edge-row-yellow';
           } else if (edge <= -0.10) {
-            signal = 'contra';
+            signal = '🔴 contra';
             rowClass = 'edge-row-red';
           } else {
-            signal = 'skip';
+            signal = '⚪ skip';
             rowClass = '';
           }
 
@@ -1244,7 +1104,7 @@ async function loadPolymarketData(city, modelData) {
 
         // Summary verdict - SPEC 7: Only allow trade if confidence is HIGH
         const confClass = 'confidence-' + marketRuleConfidence.toLowerCase();
-        const confLabel = { HIGH: 'CONFIDENCE', MEDIUM: 'MEDIUM', LOW: 'LOW' }[marketRuleConfidence];
+        const confLabel = { HIGH: '✓ CONFIDENCE', MEDIUM: '⚠ MEDIUM', LOW: '✕ LOW' }[marketRuleConfidence];
         
         html += '<div class="edge-verdict">';
         if (marketRuleConfidence === 'LOW') {
@@ -1254,9 +1114,9 @@ async function loadPolymarketData(city, modelData) {
           if (confidenceSummaryEl) confidenceSummaryEl.textContent = `Edge forte com confianca ${marketRuleConfidence}`;
           html += `<span class="verdict-go">✅ EDGE DETECTADO: <strong>${esc(bestOutcome)}</strong> com +${(bestEdge * 100).toFixed(0)}% de edge</span>`;
           if (modelSpread != null && modelSpread <= 1.5) {
-            html += ` <span class="verdict-aligned">Modelos alinhados (Δ${modelSpread.toFixed(1)}°C)</span>`;
+            html += ` <span class="verdict-aligned">· Modelos alinhados (Δ${modelSpread.toFixed(1)}°C) ✓</span>`;
           } else if (modelSpread != null) {
-            html += ` <span class="verdict-warn">Modelos divergem ${modelSpread.toFixed(1)}°C - cautela</span>`;
+            html += ` <span class="verdict-warn">· ⚠️ Modelos divergem ${modelSpread.toFixed(1)}°C — cautela</span>`;
           }
           html += `<span class="confidence-badge ${confClass}">${confLabel}</span>`;
         } else if (bestEdge >= 0.05) {
@@ -1268,7 +1128,7 @@ async function loadPolymarketData(city, modelData) {
           html += `<span class="verdict-skip">❌ SEM EDGE — mercado precificado corretamente</span>`;
           if (marketRuleConfidence !== 'HIGH') html += `<span class="confidence-badge ${confClass}">${confLabel}</span>`;
         }
-        html += `<div style="font-size:11px;color:var(--muted);margin-top:4px">mu_corr=${mu.toFixed(1)}°C · sigma_final=${sigmaFinal.toFixed(2)}°C · H=${horizonDays}d · Regra: Edge >= 10% + conf=HIGH</div>`;
+        html += `<div style="font-size:11px;color:var(--muted);margin-top:4px">μ_corr=${mu.toFixed(1)}°C · σ_final=${sigmaFinal.toFixed(2)}°C · H=${horizonDays}d · SPEC: Edge ≥ 10% + conf=HIGH + modelos alinhados</div>`;
         html += '</div>';
 
       } else {
@@ -1283,7 +1143,7 @@ async function loadPolymarketData(city, modelData) {
         });
         html += '</div>';
         if (avgPredC != null) {
-          html += `<div class="poly-compare">Modelos preveem ${avgPredC.toFixed(1)}°C - sem dados de erro historico para calcular edge</div>`;
+          html += `<div class="poly-compare">🔮 Modelos preveem ${avgPredC.toFixed(1)}°C — sem dados de erro histórico para calcular edge</div>`;
         }
       }
 
@@ -1316,14 +1176,14 @@ async function loadPolymarketData(city, modelData) {
   }
 }
 
-// â”€â”€â”€ Helpers â”€â”€â”€
+// ─── Helpers ───
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 function fmt(v) { return v != null ? Math.round(v) + '°C' : '—'; }
 function fToC(f) { return ((f - 32) * 5 / 9); }
 function convertRangeToC(range) {
   // If range contains °F, convert to °C
   if (!range.includes('°F') && !range.match(/\d+°?F/)) return range;
-  // Replace all temperature values: "36-37°F" -> "2-3°C"
+  // Replace all temperature values: "36-37°F" → "2-3°C"
   return range.replace(/([\d.-]+)\s*(?:-\s*([\d.-]+)\s*)?°?F/g, (match, t1, t2) => {
     const c1 = Math.round(fToC(parseFloat(t1)));
     if (t2) {
@@ -1334,29 +1194,7 @@ function convertRangeToC(range) {
   }).replace('or below', 'ou menos').replace('or higher', 'ou mais');
 }
 
-
-function parseMarketDate(dateStr, monthNames) {
-  if (!dateStr) return null;
-  const parts = dateStr.toLowerCase().replace(',', '').trim().split(/\s+/);
-  if (parts.length < 2) return null;
-
-  const monthIdx = monthNames.indexOf(parts[0]);
-  const dayNum = parseInt(parts[1], 10);
-  if (monthIdx < 0 || !dayNum) return null;
-
-  const now = new Date();
-  const today = new Date(now);
-  today.setHours(0, 0, 0, 0);
-  let year = now.getFullYear();
-  let parsed = new Date(`${year}-${String(monthIdx + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`);
-  if (parsed < today) {
-    year += 1;
-    parsed = new Date(`${year}-${String(monthIdx + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`);
-  }
-  return parsed.toISOString().slice(0, 10);
-}
-
-// â”€â”€â”€ Init â”€â”€â”€
+// ─── Init ───
 renderFavorites();
 renderEmptyState();
 setActiveCity(MARKET_STATIONS[0]);
