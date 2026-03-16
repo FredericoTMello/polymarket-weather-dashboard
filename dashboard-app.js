@@ -1025,10 +1025,17 @@ function renderMarketSuggestions(markets) {
     item.className = "dropdown-item";
     const location = formatMarketLocation(market);
     item.innerHTML = `<strong>${Helpers.escapeHtml(market.question || "Mercado sem titulo")}</strong> <small>${Helpers.escapeHtml(location)}</small>`;
-    item.addEventListener("click", () => {
+    item.addEventListener("click", async () => {
       State.selectedMarket = market;
       DOM.marketInput.value = market.question || market.city || "";
       DOM.marketDropdown.style.display = "none";
+      View.setStatus(`Abrindo o contrato ${market.question || "selecionado"}...`);
+      try {
+        await setActiveMarket(market);
+      } catch (error) {
+        console.error("Error activating market from suggestion:", error);
+        View.setStatus("Falha ao carregar o mercado selecionado.");
+      }
     });
     DOM.marketDropdown.appendChild(item);
   });
@@ -1039,9 +1046,11 @@ async function fetchMarkets(query = "") {
   try {
     const results = await MarketProvider.listMarkets({ query, limit: 8 });
     renderMarketSuggestions(Array.isArray(results) ? results : []);
+    return Array.isArray(results) ? results : [];
   } catch (error) {
     console.error("Market search error:", error);
     DOM.marketDropdown.style.display = "none";
+    return [];
   }
 }
 
@@ -1112,6 +1121,24 @@ function addCity() {
 
 async function addMarket() {
   if (!State.selectedMarket) {
+    const firstItem = DOM.marketDropdown.querySelector(".dropdown-item");
+    if (firstItem) {
+      firstItem.click();
+      return;
+    }
+
+    const query = DOM.marketInput.value.trim();
+    if (query) {
+      const results = await fetchMarkets(query);
+      if (results.length) {
+        const refreshedFirstItem = DOM.marketDropdown.querySelector(".dropdown-item");
+        if (refreshedFirstItem) {
+          refreshedFirstItem.click();
+          return;
+        }
+      }
+    }
+
     alert("Selecione um mercado da lista de sugestoes.");
     return;
   }
@@ -1148,8 +1175,39 @@ function bindEvents() {
     fetchMarkets("");
   });
 
+  DOM.marketInput.addEventListener("click", () => {
+    const query = DOM.marketInput.value.trim();
+    if (query.length >= 2) {
+      fetchMarkets(query);
+      return;
+    }
+    fetchMarkets("");
+  });
+
   DOM.marketInput.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") DOM.marketDropdown.style.display = "none";
+    if (event.key === "Escape") {
+      DOM.marketDropdown.style.display = "none";
+      return;
+    }
+
+    if (event.key === "Enter") {
+      event.preventDefault();
+      if (State.selectedMarket) {
+        addMarket().catch((error) => {
+          console.error("Error activating market with Enter:", error);
+          View.setStatus("Falha ao carregar o mercado selecionado.");
+        });
+        return;
+      }
+
+      const firstItem = DOM.marketDropdown.querySelector(".dropdown-item");
+      if (firstItem) {
+        firstItem.click();
+        return;
+      }
+
+      fetchMarkets(DOM.marketInput.value.trim());
+    }
   });
 
   DOM.input.addEventListener("input", () => {

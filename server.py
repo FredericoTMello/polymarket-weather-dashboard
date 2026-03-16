@@ -273,11 +273,21 @@ def filter_market_events(events, query="", city_query="", limit=None):
 
 
 class DashboardHandler(http.server.SimpleHTTPRequestHandler):
+    extensions_map = {
+        **http.server.SimpleHTTPRequestHandler.extensions_map,
+        ".mjs": "application/javascript",
+    }
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=DASHBOARD_DIR, **kwargs)
 
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
+
+        if parsed.path == "/favicon.ico":
+            self.send_response(204)
+            self.end_headers()
+            return
 
         if parsed.path == "/api/polymarket/markets":
             params = urllib.parse.parse_qs(parsed.query)
